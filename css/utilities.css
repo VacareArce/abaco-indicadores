@@ -1,0 +1,48 @@
+@charset "UTF-8";
+div{
+  border-color: black;
+  border-width: 0px;
+  border-style: dotted;
+}
+
+div.encabezado {
+	color: #ffffff;
+	background-color: #0FACAC;
+
+}
+div.cuerpo {
+	color: #ffffff;
+	background-color: #FFFFFF;
+}
+
+
+.embed-container {
+    position: relative;
+    padding-bottom: calc(70%);
+    height: 0
+    overflow: hidden;
+}
+@media (max-width: 1700px) {
+	.embed-container {
+		padding-bottom: 70%;
+	}
+}
+@media (max-width: 1300px) {
+	.embed-container {
+		padding-bottom: calc(70% + 1px);
+	}
+}
+@media (max-width: 1000px) {
+	.embed-container {
+		padding-bottom: calc(70% + 1px);
+	}
+}
+
+.embed-container iframe {
+    position: absolute;
+    top:0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+	

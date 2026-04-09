@@ -1,0 +1,230 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif; /* Usando la fuente Poppins de Google Fonts */
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Centrar los elementos del contenedor principal */
+}
+
+.navbar {
+    list-style-type: none;
+    text-align: center;
+    padding: 20px 10px;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+
+
+.dropdown {
+    display: inline-block;
+    position: relative;
+    margin: 0 10px; /*espacio a los lados antes 20*/
+    width: fit-content;
+}
+
+.dropdown a.dropbtn {
+    color: black;
+    text-align: center;
+    padding: 12px 12px; /*cambio*/
+    text-decoration: none;
+    font-size: 16px; /*cambio*/
+}
+
+.dropdown:first-child a.dropbtn {
+    box-shadow: 0 2px  #D9D90D;
+}
+.dropdown:first-child:hover a.dropbtn,
+.dropdown:first-child:hover .dropdown-content a.submenu-item:hover {
+    background-color: rgba(9, 172, 172, 0.19);
+}
+
+.dropdown:first-child .dropdown-content {
+    border-color: #D9D90D;
+}
+
+
+.dropdown:nth-child(2) a.dropbtn {
+    box-shadow: 0 2px #742B82;
+}
+.dropdown:nth-child(2):hover a.dropbtn,
+.dropdown:nth-child(2):hover .dropdown-content a.submenu-item:hover {
+    background-color: rgba(116, 43, 130, 0.19);
+}
+.dropdown:nth-child(2) .dropdown-content {
+    border-color: #742B82;
+}
+
+
+.dropdown:nth-child(3) a.dropbtn {
+    box-shadow: 0 2px #E61470;
+}
+.dropdown:nth-child(3):hover a.dropbtn,
+.dropdown:nth-child(3):hover .dropdown-content a.submenu-item:hover {
+    background-color: rgba(230, 20, 112, 0.19);
+}
+.dropdown:nth-child(3) .dropdown-content {
+    border-color: #E61470;
+}
+
+.dropdown:nth-child(4) a.dropbtn {
+    box-shadow: 0 2px #09AcAc;
+}
+.dropdown:nth-child(4):hover a.dropbtn,
+.dropdown:nth-child(4):hover .dropdown-content a.submenu-item:hover {
+    background-color: rgba(217, 217, 13, 0.19);
+}
+.dropdown:nth-child(4) .dropdown-content {
+    border-color: #09AcAc;
+}
+
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: 30px;  /*posicion de el cuadro de menu*/
+    width: 100%;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    list-style-type: none;
+    left: 0;
+    transform: none;
+    padding-left: 0px;
+    border: 2px solid;
+	background-color: #fff;
+}
+
+
+
+
+
+
+
+.dropdown-content a {
+    color: black;
+    padding-bottom: 0px;
+    padding-top: 2px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+}
+
+.dropdown-content a.submenu-item {
+    margin-left: 0px;
+    padding: 4px 0px 0px 20px;
+    font-size: 12px; //cambio
+}
+
+.dropdown-content a:hover {
+    background-color: #ddd;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a.submenu-title {
+    font-weight: bold;
+    padding: 8px 0px 0px 4px;
+    pointer-events: none;
+    color: black;
+    font-size: 10px; /*cambio*/
+}
+
+@media (max-width: 1000px) {
+    .navbar {
+        padding: 20px 0px;
+    }
+    .dropdown a.dropbtn {
+        font-size: 14px;  //cambio
+    }
+    .dropdown-content {
+        top: 28px;
+    }
+}
+
+@media (max-width: 900px) {
+    .navbar {
+        padding: 20px 0px;
+    }
+    .dropdown a.dropbtn {
+        font-size: 12px;   //cambio
+    }
+    .dropdown-content {
+        top: 26px;
+    }
+}
+
+/* Código CSS para la barra lateral con íconos */
+
+.sidebar {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    width: 80px;  /* Hace que el menú sea un poco más ancho */
+    background-color: #fff;  /* Cambia el color de fondo a blanco */
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;  /* Distribuye el espacio de manera equitativa entre los recuadros */
+    height: 300px;
+}
+
+.sidebar img {
+    width: 55px;
+    height: auto;
+}
+
+.sidebar a {
+    color: #fff;  /* Cambia el color del ícono a blanco */
+    text-decoration: none;
+    transition: color 0.3s ease;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;  /* Asegura que todos los recuadros tengan la misma altura */
+    width: 60px;  /* Asegura que todos los recuadros tengan la misma anchura */
+    background-color: #B2B2B2;  
+    margin-bottom: 10px;
+    border-radius: 10px;  /* Añade bordes redondeados a los recuadros */
+}
+
+.sidebar a .cls-1 {
+    fill: #fff; /* Color inicial */
+    transition: fill 0.3s ease; /* Transición suave del color */
+}
+
+.sidebar a:hover .cls-1 {
+    fill: #09AcAc; /* Color al pasar el cursor por encima */
+}
+
+/* Estilo para el div central */
+.content-display {
+    text-align: center;
+    font-size: 24px;
+	
+    margin-top: 40px; /* Puedes ajustar según tus necesidades */
+}
+
+/* Estilo para los botones laterales cuando están presionados */
+.icon-link.active {
+    background-color: #09AcAc; /* Color de fondo cuando está presionado */
+}
+
+/* Estilo para los SVGs dentro de los enlaces */
+.icon-link svg .cls-1 {
+    fill: #fff; /* Color por defecto */
+}
+
+.icon-link.active svg .cls-1 {
+    fill: #fff; /* Color cuando está activo */
+}
+
+
