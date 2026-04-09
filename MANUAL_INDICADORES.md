@@ -110,3 +110,15 @@ Para corroborar los cambios:
 
 * **La gráfica no carga al hacer clic en el botón:**
   * **Causa probable:** El valor dentro de `onclick="cambiarMapa('id')"` en el archivo `index.html` no coincide de forma exacta con el ID registrado en `menu_lista_tableros.js`. Tenga en cuenta las mayúsculas y minúsculas.
+
+### Nota Técnica Avanzada: Nuevas Fuentes de Datos (BigQuery)
+
+El filtrado por municipio funciona mediante la inyección directa de parámetros en la URL hacia **todas** las fuentes de datos conectadas al tablero de Looker Studio. En el archivo `index.html` (dentro de la función `actualizarTablero`), existe un bloque encargado de asignar el código de municipio a cada fuente de datos (`ds001`, `ds002`... `ds024`).
+
+**Si un nuevo indicador utiliza una fuente de datos de BigQuery completamente nueva** que no estuviera previamente en el tablero, Looker Studio le asignará un nuevo identificador interno (por ejemplo, `ds025`).
+
+Para que el filtro de municipio funcione en esa gráfica específica, deberá abrir `index.html`, localizar la función `actualizarTablero`, y añadir manualmente la nueva fuente a la cadena de texto de la variable `url2`:
+```javascript
++'"ds025.pcodigom":"'+codeMunicipio+'"'+','
+```
+Si se omite este paso, el nuevo indicador mostrará datos a nivel nacional y no responderá a la selección de municipio.
