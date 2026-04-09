@@ -74,6 +74,7 @@
             border-left: 6px solid var(--abaco-naranja);
             font-size: 0.95em;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+            position: relative; /* Necesario para ubicar el botón de copiar */
         }
         pre code {
             background: transparent;
@@ -118,6 +119,65 @@
         .text-center {
             text-align: center;
         }
+        
+        /* Estilos del Índice (TOC) */
+        .toc {
+            background-color: #fcfcfc;
+            border: 1px solid #e0e0e0;
+            padding: 20px 30px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            border-left: 4px solid var(--abaco-verde);
+        }
+        .toc-title {
+            margin-top: 0;
+            font-size: 1.2em;
+            color: var(--abaco-verde);
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .toc li {
+            margin-bottom: 10px;
+        }
+        .toc a {
+            text-decoration: none;
+            color: var(--abaco-gris);
+            font-weight: 600;
+            transition: color 0.2s;
+            display: inline-block;
+        }
+        .toc a:hover {
+            color: var(--abaco-naranja);
+            transform: translateX(5px);
+        }
+
+        /* Estilo del botón de copiar */
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ddd;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 5px 12px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .copy-btn:hover {
+            background: var(--abaco-naranja);
+            color: white;
+            border-color: var(--abaco-naranja);
+        }
     </style>
 </head>
 <body>
@@ -128,7 +188,18 @@
     
     <hr>
 
-    <div class="step-block">
+    <div class="toc">
+        <h3 class="toc-title">Índice Rápido de Navegación</h3>
+        <ul>
+            <li><a href="#fase-0">Fase 0: Recolección de Datos Mínimos</a></li>
+            <li><a href="#paso-1">Paso 1: Configurar el Diccionario (JS)</a></li>
+            <li><a href="#paso-2">Paso 2: Alinear el Motor de Filtrado (Granularidad)</a></li>
+            <li><a href="#paso-3">Paso 3: Ensamblar la Interfaz Principal (HTML)</a></li>
+            <li><a href="#errores">Protocolo de Errores y Diagnóstico</a></li>
+        </ul>
+    </div>
+
+    <div class="step-block" id="fase-0">
         <h2>Fase 0: Recolección de Datos</h2>
         <p>Asegúrese de recopilar la siguiente configuración exacta antes de iniciar la programación:</p>
         <ul>
@@ -140,7 +211,7 @@
         </ul>
     </div>
 
-    <div class="step-block">
+    <div class="step-block" id="paso-1">
         <h2>Paso 1: Configurar el Diccionario (JS)</h2>
         <p>El archivo <code>js/menu_lista_tableros.js</code> es el responsable de mapear las conexiones visuales.</p>
         <ol>
@@ -159,7 +230,7 @@
         </div>
     </div>
 
-    <div class="step-block">
+    <div class="step-block" id="paso-2">
         <h2>Paso 2: Alinear el Motor de Filtrado (Granularidad)</h2>
         <p>El sistema usa inyección directa a las fuentes del dashboard en `actualizarTablero()`. Sin este paso, el filtro geográfico fallará cediendo paso a resultados incorrectos.</p>
         <ol>
@@ -176,7 +247,7 @@
 <pre><code>+<span class="str">'"ds025.pcodigom":"'</span>+codeDep+<span class="str">'"'</span>+<span class="str">','</span></code></pre>
     </div>
 
-    <div class="step-block">
+    <div class="step-block" id="paso-3">
         <h2>Paso 3: Ensamblar la Interfaz Principal (HTML)</h2>
         <p>El componente final es generar el ancla interactiva para el menú superior horizontal.</p>
         <ol>
@@ -187,7 +258,7 @@
 <pre><code>&lt;<span class="kw">li</span>&gt;&lt;<span class="kw">a</span> class=<span class="str">"submenu-item"</span> onclick=<span class="str">"cambiarMapa('TU_ID_DEL_SISTEMA')"</span>&gt;Ver Indicador&lt;/<span class="kw">a</span>&gt;&lt;/<span class="kw">li</span>&gt;</code></pre>
     </div>
 
-    <h2>Protocolo de Errores y Diagnóstico</h2>
+    <h2 id="errores">Protocolo de Errores y Diagnóstico</h2>
     <p>Guarde con <code>Ctrl+S</code> todos los archivos y refresque su navegador presionando <code>F5</code>.</p>
     <ul>
         <li><strong>Fallo Masivo (Pantalla totalmente blanca o no se dibuja el menú):</strong> Refleja una violación en el uso de las comas o sintáxis de llaves en el <em>Paso 1</em>.</li>
@@ -196,6 +267,34 @@
     </ul>
 
 </div>
+
+<script>
+    // Script para añadir los botones de Copiar al portapapeles a todos los bloques de código
+    document.querySelectorAll('pre').forEach(function(preBlock) {
+        var button = document.createElement('button');
+        button.className = 'copy-btn';
+        button.innerText = 'Copiar';
+        button.title = 'Añadir al portapapeles';
+        
+        button.addEventListener('click', function() {
+            var code = preBlock.querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(function() {
+                button.innerText = '¡Copiado!';
+                button.style.backgroundColor = 'var(--abaco-verde)';
+                button.style.borderColor = 'var(--abaco-verde)';
+                setTimeout(function() {
+                    button.innerText = 'Copiar';
+                    button.style.backgroundColor = '';
+                    button.style.borderColor = '';
+                }, 2000);
+            }).catch(function(err) {
+                console.error("Error al copiar texto: ", err);
+            });
+        });
+        
+        preBlock.appendChild(button);
+    });
+</script>
 
 </body>
 </html>
