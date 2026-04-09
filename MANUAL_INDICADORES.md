@@ -1,42 +1,29 @@
 # Manual para Agregar Nuevos Indicadores al Dashboard
 
-Este manual explica el proceso para agregar un nuevo indicador al Dashboard interactivo de ABACO. 
+Este manual documenta el procedimiento completo para agregar un nuevo indicador al Dashboard interactivo de ABACO. 
 
-El sistema utiliza tableros creados previamente en Google Looker Studio. Para agregar un indicador, es necesario configurar la ubicación de la gráfica y crear el enlace en el menú de navegación.
+El sistema vincula tableros de Google Looker Studio (construidos sobre BigQuery) a nuestra interfaz. Para que el proceso sea exitoso, debes configurar el diccionario de datos, actualizar la lógica de filtrado según la granularidad de tu indicador, y finalmente crear el botón en el menú.
 
 ---
 
 ## Preparación: Datos Requeridos
 
-Antes de modificar el código, asegúrese de tener la siguiente información:
+Antes de tocar el código fuente, recopile la siguiente información sobre el nuevo indicador:
 
-### 1. ID del Sistema
-Es una palabra clave corta y sin espacios que identifica al indicador en el código. 
-* Ejemplos correctos: `pesoIdeal`, `vacunacion2024`, `pobrezaExt`.
-* Ejemplos incorrectos: `Peso Ideal`, `vacunacion-2024` (evite espacios y caracteres especiales).
-
-### 2. ID de la Página en Looker Studio
-En la barra de direcciones de su navegador al visualizar la gráfica en Google Looker Studio, ubique la URL:
-`https://lookerstudio.google.com/reporting/f2ee...aac1-91dd.../page/p_jlgbdeha4c`
-
-Copie únicamente el código posterior a la palabra `/page/`.
-* **Dato a copiar:** `p_jlgbdeha4c`
-
-### 3. Enlace de Google Drive (Ficha Técnica PDF)
-Debe subir la ficha técnica en PDF a Google Drive.
-* Verifique que los permisos del archivo estén en **"Cualquier usuario con el enlace puede leer"**.
-* **Dato a copiar:** Copie el enlace para compartir (`https://drive.google.com/file/d/.../view?usp=drive_link`).
+1. **ID del Sistema:** Palabra clave sin espacios para identificar el indicador (ej. `pesoIdeal`, `pobrezaExt`).
+2. **ID de Looker Studio:** El código al final de la URL pública de su gráfica, después de `/page/` (ej. `p_jlgbdeha4c`).
+3. **Enlace de Google Drive:** URL pública de la ficha técnica en PDF.
+4. **Nivel de Granularidad (Territorialidad):** Determine si los datos en BigQuery de este indicador están desglosados detalladamente a nivel de **Municipio** o agregados a nivel de **Departamento**.
+5. **ID de la Fuente de Datos (`dsXXX`):** Si esto requiere una conexión nueva a BigQuery en Looker Studio, este le asignará un identificador (ej. `ds025`). Deberá conocer cuál es.
 
 ---
 
-## Paso 1: Registrar el Indicador en el Diccionario de Datos
+## Paso 1: Registrar el Indicador en el Diccionario
 
-El archivo `js/menu_lista_tableros.js` asocia cada "ID del Sistema" con su respectivo enlace.
+El archivo `js/menu_lista_tableros.js` asocia su nuevo "ID del Sistema" con Looker Studio y Google Drive.
 
-**Instrucciones:**
-1. Abra el archivo `js/menu_lista_tableros.js` en su editor de texto o código.
-2. Ubique el bloque de la variable `var tableros = {`.
-3. Agregue un bloque con la siguiente estructura, preferiblemente junto a indicadores de temática similar:
+1. Abra el archivo `js/menu_lista_tableros.js`.
+2. Dentro del bloque de la variable `var tableros = {`, agregue la siguiente estructura:
 
 ```javascript
 "TU_ID_DEL_SISTEMA": { 
@@ -45,85 +32,56 @@ El archivo `js/menu_lista_tableros.js` asocia cada "ID del Sistema" con su respe
 }
 ```
 
-**Uso de Comas en JavaScript:**
-Cada elemento dentro del objeto `tableros` debe estar separado por una coma `,`.
-* Si el nuevo indicador no es el último elemento, debe terminar con una coma.
-* Si el nuevo indicador es el último elemento antes del cierre `};`, no lleva coma al final, pero el penúltimo elemento sí debe llevarla.
-
-**Ejemplo de estructura final:**
-```javascript
-				"MortMAT": {
-           "tablero":"p_wgz0pvrxjd", 
-           "ficha":"https://drive.google.com/file/d/.../view"
-        }, // OJO: Requiere coma porque le sigue un nuevo bloque
-				"pesoIdeal": { 
-           "tablero": "p_xysjd34c", 
-           "ficha": "https://drive.google.com/file/d/.../view"
-        }  // OJO: Sin coma porque es el último elemento del objeto
-			};
-	return tableros;
-} 
-```
-Guarde el archivo (`Ctrl + S`).
+**Uso de Comas:** Como regla de JavaScript, todos los elementos del bloque deben separarse por coma `,`. Si este es su último indicador antes del cierre `};`, no escriba coma al final del bloque, pero asegúrese de colocar una al bloque que quedó arriba.
 
 ---
 
-## Paso 2: Agregar el Botón a la Interfaz
+## Paso 2: Configurar el Filtrado Geográfico (Granularidad)
 
-A continuación, se debe crear un botón visible en el menú principal.
+El sistema inyecta directamente el código geográfico a todas las fuentes de datos (BigQuery) para filtrar la vista actual. Debemos enseñarle al código cómo aplicar el filtro para nuestro nuevo indicador.
 
-**Instrucciones:**
 1. Abra el archivo `index.html`.
-2. Ubique el contenedor `<div id="horizontal-menu">`.
-3. Busque la categoría (`<li class="dropdown">`) y lista correspondiente (`<ul class="dropdown-content">`) para su indicador.
-4. Inserte la siguiente línea de código, reemplazando los valores por los suyos:
+2. Localice la función `actualizarTablero(codeMunicipio)`.
+3. Verá una larga lista de variables de fuentes de datos (`ds001`, `ds002`, etc.) que están siendo concatenadas en la variable `url2`.
+4. Añada la nueva fuente de Looker Studio (`dsXXX`) escogiendo estrictamente la variable adecuada en base a su nivel de agregación:
 
-```html
-<li><a class="submenu-item" onclick="cambiarMapa('TU_ID_DEL_SISTEMA')">Título del indicador</a></li>
-```
-
-### Categorías Nuevas
-Si el indicador requiere un nuevo título organizador dentro del menú, utilice la clase `submenu-title`:
-
-```html
-<li><a class="submenu-title" href="#">Nueva Sub-Categoría</a></li>
-<li><a class="submenu-item" onclick="cambiarMapa('TU_ID_DEL_SISTEMA')">Indicador 1</a></li>
-```
-
-Guarde el archivo (`Ctrl + S`).
-
----
-
-## Paso 3: Verificación
-
-Para corroborar los cambios:
-
-1. Abra o actualice (`F5`) el archivo `index.html` en su navegador web.
-2. En el menú de navegación superior, ubique y haga clic en su nuevo indicador.
-3. Compruebe que la gráfica en el área central se cargue correctamente.
-4. Haga clic en el ícono de descarga en el menú lateral izquierdo para verificar que el enlace de la Ficha Técnica direcciona al documento PDF correspondiente.
-
-### Resolución de Problemas
-
-* **La pantalla se muestra en blanco o el menú no funciona:**
-  * **Causa probable:** Error de sintaxis en `js/menu_lista_tableros.js`, típicamente la ausencia o exceso de una coma `,`. Revise el archivo para corregirlo. Puede apoyarse en la consola del navegador (`F12` -> Pestaña Console) para identificar la línea exacta del error.
-
-* **La gráfica no carga al hacer clic en el botón:**
-  * **Causa probable:** El valor dentro de `onclick="cambiarMapa('id')"` en el archivo `index.html` no coincide de forma exacta con el ID registrado en `menu_lista_tableros.js`. Tenga en cuenta las mayúsculas y minúsculas.
-
-### Nota Técnica Avanzada: Fuentes de Datos (BigQuery)
-
-El filtrado por municipio funciona mediante la inyección directa de parámetros en la URL hacia **todas** las fuentes de datos conectadas al tablero de Looker Studio. En el archivo `index.html` (dentro de la función `actualizarTablero`), existe un bloque encargado de asignar el código de municipio a cada fuente de datos (`ds001`, `ds002`... `ds024`).
-
-**Si un nuevo indicador utiliza una fuente de datos de BigQuery completamente nueva** que no estuviera previamente en el tablero, Looker Studio le asignará un nuevo identificador interno (por ejemplo, `ds025`).
-
-Para que el filtro de municipio funcione en esa gráfica específica, deberá abrir `index.html`, localizar la función `actualizarTablero`, y añadir manualmente la nueva fuente a la cadena de texto de la variable `url2`:
+* **Para datos en BigQuery a nivel Municipal:**
+Debe cruzar obligatoriamente usando la variable `codeMunicipio` para que el filtro calce. Añada esta línea:
 ```javascript
 +'"ds025.pcodigom":"'+codeMunicipio+'"'+','
 ```
-Si se omite este paso, el nuevo indicador mostrará datos a nivel nacional y no responderá a la selección de municipio.
 
-**Importante: Granularidad (Municipal vs Departamental)**
-Preste especial atención al nivel de agregación de la fuente de datos en BigQuery para decidir qué variable enviar:
-* **Datos a nivel municipal:** Se debe cruzar utilizando la variable `codeMunicipio` (ej. `+'"ds025.pcodigom":"'+codeMunicipio+'"'+','`).
-* **Datos agregados a nivel departamental:** Si la tabla carece de desglose municipal, intentar enviarle `codeMunicipio` generará un cruce fallido (resultados vacíos). En este caso, obligatoriamente debe inyectarse la variable `codeDep` (ej. `+'"ds025.pcodigom":"'+codeDep+'"'+','`).
+* **Para datos en BigQuery a nivel Departamental:**
+Si los datos carecen de desglose municipal, inyectar el código de un municipio fallaría devolviendo listas vacías. Debe usar obligatoriamente la variable `codeDep`:
+```javascript
++'"ds025.pcodigom":"'+codeDep+'"'+','
+```
+
+*(Cambie `ds025` por el código secuencial asignado que corresponda).*
+
+---
+
+## Paso 3: Agregar el Botón al Menú
+
+Por último, crearemos la opción en la barrar superior para que el usuario pueda visualizar el gráfico en pantalla.
+
+1. En el mismo archivo `index.html`, busque el contenedor superior llamado `<div id="horizontal-menu">`.
+2. Navegue en las categorías existentes (`<li class="dropdown">`) y seleccione en qué lista desplegable encaja su indicador.
+3. Inserte el botón, verificando usar su ID exacto:
+
+```html
+<li><a class="submenu-item" onclick="cambiarMapa('TU_ID_DEL_SISTEMA')">Título de mi nuevo Indicador</a></li>
+```
+*(Si desea crear una nueva categoría separadora para el botón, use: `<li><a class="submenu-title" href="#">Nueva Sección</a></li>` justo arriba).*
+
+Guarde todos los cambios (`Ctrl + S`).
+
+---
+
+## Confirmación y Errores Comunes
+
+Para revisar que la instalación fue exitosa, actualice `index.html` (`F5`) en el navegador.
+
+* **Fallo general (pantalla blanca):** Error de sintaxis en el Paso 1 (`js/menu_lista_tableros.js`). Revise si faltó o sobró una coma.
+* **El botón no hace nada:** Discrepancia de texto entre el `onclick` que escribió en el Paso 3 y el diccionario del Paso 1. Las mayúsculas importan.
+* **La gráfica se muestra a nivel nacional en vez de filtrarse:** Con alta seguridad, obvió el Paso 2 o se equivocó de variable (`codeMunicipio` vs `codeDep`). Looker Studio no está recibiendo el código geográfico que esperaba.
