@@ -122,3 +122,8 @@ Para que el filtro de municipio funcione en esa gráfica específica, deberá ab
 +'"ds025.pcodigom":"'+codeMunicipio+'"'+','
 ```
 Si se omite este paso, el nuevo indicador mostrará datos a nivel nacional y no responderá a la selección de municipio.
+
+**Importante: Granularidad (Municipal vs Departamental)**
+Preste especial atención al nivel de agregación de la nueva fuente de datos en BigQuery para decidir qué variable enviar:
+* **Datos a nivel municipal:** Se debe cruzar utilizando la variable `codeMunicipio` (ej. `+'"ds025.pcodigom":"'+codeMunicipio+'"'+','`).
+* **Datos agregados a nivel departamental:** Si la tabla carece de desglose municipal, intentar enviarle `codeMunicipio` generará un cruce fallido (resultados vacíos). En este caso, obligatoriamente debe inyectarse la variable `codeDep` (ej. `+'"ds025.pcodigom":"'+codeDep+'"'+','`).
