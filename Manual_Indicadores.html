@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual ABACO: Agregar Nuevos Indicadores</title>
+    <style>
+        :root {
+            --abaco-verde-limon: #D2DE38;
+            --abaco-naranja: #F58634;
+            --abaco-verde: #00A859;
+            --abaco-gris: #5B5B5B;
+        }
+        body {
+            font-family: 'Century Gothic', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--abaco-gris);
+            line-height: 1.7;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 50px 60px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border-top: 8px solid var(--abaco-verde);
+        }
+        h1, h2, h3 {
+            color: var(--abaco-verde);
+        }
+        h1 {
+            border-bottom: 3px solid var(--abaco-verde-limon);
+            padding-bottom: 15px;
+            font-size: 2.4em;
+            margin-top: 0;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 45px;
+            font-size: 1.6em;
+            display: flex;
+            align-items: center;
+            color: var(--abaco-gris);
+        }
+        h2::before {
+            content: "■";
+            color: var(--abaco-naranja);
+            margin-right: 12px;
+            font-size: 1.1em;
+        }
+        h3 {
+            margin-top: 25px;
+            color: var(--abaco-gris);
+            font-weight: bold;
+        }
+        code {
+            background: #f1f1f1;
+            padding: 3px 7px;
+            border-radius: 4px;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            color: #e83e8c;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, monospace;
+            border-left: 6px solid var(--abaco-naranja);
+            font-size: 0.95em;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        .str { color: #98c379; } /* String color for JS */
+        .kw { color: #c678dd; } /* Keyword color */
+        
+        .alert {
+            padding: 20px;
+            background-color: #fff9e6;
+            border-left: 6px solid var(--abaco-naranja);
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            color: #5c4d11;
+        }
+        .alert strong {
+            color: var(--abaco-naranja);
+            font-size: 1.1em;
+        }
+        .step-block {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            padding: 25px 30px;
+            border-radius: 8px;
+            margin-bottom: 35px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            transition: transform 0.2s;
+        }
+        .step-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+            border-color: var(--abaco-verde-limon);
+        }
+        hr {
+            border: 0;
+            height: 1px;
+            background: #e0e0e0;
+            margin: 40px 0;
+        }
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Guía de Integración:<br>Nuevos Indicadores</h1>
+    <p class="text-center">Este documento establece el procedimiento estándar para agregar nuevos indicadores al Dashboard de <strong>ABACO</strong>. Todo el proceso requiere la edición de dos archivos locales y conocer previamente los accesos de Looker Studio.</p>
+    
+    <hr>
+
+    <div class="step-block">
+        <h2>Fase 0: Recolección de Datos</h2>
+        <p>Asegúrese de recopilar la siguiente configuración exacta antes de iniciar la programación:</p>
+        <ul>
+            <li><strong>ID del Sistema:</strong> Una palabra clave sin espacios (ej. <code>pesoIdeal</code>).</li>
+            <li><strong>ID de Looker Studio:</strong> El identificador único del tablero, localizado numéricamente en su URL después del segmento <code>/page/</code> (ej. <code>p_jlgbdeha4c</code>).</li>
+            <li><strong>Ficha Técnica:</strong> El enlace público de Google Drive con el archivo en formato PDF.</li>
+            <li><strong>Nivel Geográfico:</strong> El entendimiento absoluto de si los datos en BigQuery están detallados por <strong>Municipio</strong> o consolidados por <strong>Departamento</strong>.</li>
+            <li><strong>ID Sequencial de Datos:</strong> El identificador de fuente de datos asignado internamente por Looker Studio (ej. <code>ds025</code>).</li>
+        </ul>
+    </div>
+
+    <div class="step-block">
+        <h2>Paso 1: Configurar el Diccionario (JS)</h2>
+        <p>El archivo <code>js/menu_lista_tableros.js</code> es el responsable de mapear las conexiones visuales.</p>
+        <ol>
+            <li>Abra el archivo <code>js/menu_lista_tableros.js</code>.</li>
+            <li>Encuentre el bloque maestro de la variable <code>var tableros = {</code>.</li>
+            <li>Inyecte al final del bloque su nuevo indicador con el siguiente formato estricto:</li>
+        </ol>
+        <pre><code><span class="str">"TU_ID_DEL_SISTEMA"</span>: { 
+    <span class="str">"tablero"</span>: <span class="str">"EL_ID_DE_LOOKER_STUDIO"</span>, 
+    <span class="str">"ficha"</span>: <span class="str">"EL_ENLACE_DE_GOOGLE_DRIVE"</span>
+}</code></pre>
+        
+        <div class="alert">
+            <strong>⚠ Regla de Comas en JavaScript</strong><br>
+            Debe separar cada bloque de configuración con una coma (<code>,</code>). Si inserta su indicador al final de la lista, garantice que el penúltimo contenga una coma y que el suyo de cierre se omita. El inclumplimiento de esto "romperá" la interfaz entera.
+        </div>
+    </div>
+
+    <div class="step-block">
+        <h2>Paso 2: Alinear el Motor de Filtrado (Granularidad)</h2>
+        <p>El sistema usa inyección directa a las fuentes del dashboard en `actualizarTablero()`. Sin este paso, el filtro geográfico fallará cediendo paso a resultados incorrectos.</p>
+        <ol>
+            <li>Abra el archivo central <code>index.html</code>.</li>
+            <li>Localice en el código fuente la función llamada <code>actualizarTablero(codeMunicipio)</code>.</li>
+            <li>Identifique la cadena gigantesca de texto (<code>url2</code>) donde residen los parámetros <code>ds001</code> al actual.</li>
+            <li>Anexe su nueva fuente guiándose por estas reglas matemáticas:</li>
+        </ol>
+        
+        <p>► <strong>Para bases detalladas por Municipio:</strong><br>Use estrictamente el parámetro municipal.</p>
+<pre><code>+<span class="str">'"ds025.pcodigom":"'</span>+codeMunicipio+<span class="str">'"'</span>+<span class="str">','</span></code></pre>
+
+        <p>► <strong>Para bases consolidadas (Departamentales):</strong><br>Omitir reglas municipales y forzar el cruce general.</p>
+<pre><code>+<span class="str">'"ds025.pcodigom":"'</span>+codeDep+<span class="str">'"'</span>+<span class="str">','</span></code></pre>
+    </div>
+
+    <div class="step-block">
+        <h2>Paso 3: Ensamblar la Interfaz Principal (HTML)</h2>
+        <p>El componente final es generar el ancla interactiva para el menú superior horizontal.</p>
+        <ol>
+            <li>Sin cerrar <code>index.html</code>, desplácese hacia arriba buscando el contenedor <code>&lt;div id="horizontal-menu"&gt;</code>.</li>
+            <li>Despliegue las listas (<code>dropdown-content</code>) hasta hallar el sitio perfecto para la nueva herramienta.</li>
+            <li>Cree la etiqueta HTML, vinculándola a su recién creado ID del sistema:</li>
+        </ol>
+<pre><code>&lt;<span class="kw">li</span>&gt;&lt;<span class="kw">a</span> class=<span class="str">"submenu-item"</span> onclick=<span class="str">"cambiarMapa('TU_ID_DEL_SISTEMA')"</span>&gt;Ver Indicador&lt;/<span class="kw">a</span>&gt;&lt;/<span class="kw">li</span>&gt;</code></pre>
+    </div>
+
+    <h2>Protocolo de Errores y Diagnóstico</h2>
+    <p>Guarde con <code>Ctrl+S</code> todos los archivos y refresque su navegador presionando <code>F5</code>.</p>
+    <ul>
+        <li><strong>Fallo Masivo (Pantalla totalmente blanca o no se dibuja el menú):</strong> Refleja una violación en el uso de las comas o sintáxis de llaves en el <em>Paso 1</em>.</li>
+        <li><strong>Inactividad al pulsar el botón:</strong> Causa directa de un nombre disparejo o desfasado entre el `onclick` de su <em>Paso 3</em> y el diccionario de su <em>Paso 1</em>. El lenguaje diferencia entre mayúsculas y minúsculas de forma estricta.</li>
+        <li><strong>Dato incongruente (Filtro geográfico roto):</strong> Falla humana en la discriminación del <em>Paso 2</em>, uso erróneo de <code>codeDep</code> en lugar de <code>codeMunicipio</code>, u olvido total de integrar la lógica en la función central.</li>
+    </ul>
+
+</div>
+
+</body>
+</html>
