@@ -45,6 +45,25 @@
                     
 					<li><a class="submenu-title" href="#">Perdidas y desperdicios</a></li> <!-- Titulo-->
                     <li><a class="submenu-item" onclick="cambiarMapa('PDA')">Perdidas y desperdicios</a></li>
+                    
+                    <li><a class="submenu-title" href="#">Alimentos que botan las familias</a></li> <!-- Titulo-->
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Verduras_BQ')">Verduras</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Legumbres_BQ')">Legumbres</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Cereales_BQ')">Cereales</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Frutas_BQ')">Frutas</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Productos_lacteos_BQ')">Productos lácteos</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Productos_carnicos_BQ')">Productos cárnicos</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Raices_tuberculos_y_platanos_BQ')">Raíces, tubérculos y plátanos</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('T_Huevos_BQ')">Huevos</a></li>
+                    
+                    <li><a class="submenu-title" href="#">Razones por las que se botan alimentos</a></li> <!-- Titulo-->
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Compra_mas_BQ')">Compra en exceso</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Prepara_mas_BQ')">Preparación en exceso</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Humedad_temperatura_BQ')">Humedad o clima extremo</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Mala_conservacion_BQ')">Daño por mala conservación</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Vencimiento_BQ')">Fecha de vencimiento</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Falta_refrigeracion_BQ')">Fallas en refrigeración</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Exceso_tiempo_BQ')">Daño por exceso de tiempo</a></li>
                 </ul>
             </li>
             <li class="dropdown">
@@ -106,11 +125,9 @@
 					<li><a class="submenu-title" href="#">Servicios públicos</a></li> <!-- Titulo-->
                     <li><a class="submenu-item" onclick="cambiarMapa('acueducto')">Acueducto</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('alcantarillado')">Alcantarillado</a></li>
-					
-
-					
                 </ul>
             </li>
+
         </ul>
     </div>
 
@@ -279,6 +296,21 @@
 			+'"ds022.pcodigom":"'+codeMunicipio+'"'+','
 			+'"ds023.pcodigom":"'+codeMunicipio+'"'+','
 			+'"ds024.pcodigom":"'+codeMunicipio+'"'+','
+			+'"ds025.pcodigod":"'+codeDep+'"'+','
+			+'"ds026.pcodigod":"'+codeDep+'"'+','
+			+'"ds027.pcodigod":"'+codeDep+'"'+','
+			+'"ds028.pcodigod":"'+codeDep+'"'+','
+			+'"ds029.pcodigod":"'+codeDep+'"'+','
+			+'"ds030.pcodigod":"'+codeDep+'"'+','
+			+'"ds031.pcodigod":"'+codeDep+'"'+','
+			+'"ds032.pcodigod":"'+codeDep+'"'+','
+			+'"ds033.pcodigod":"'+codeDep+'"'+','
+			+'"ds034.pcodigod":"'+codeDep+'"'+','
+			+'"ds035.pcodigod":"'+codeDep+'"'+','
+			+'"ds036.pcodigod":"'+codeDep+'"'+','
+			+'"ds037.pcodigod":"'+codeDep+'"'+','
+			+'"ds038.pcodigod":"'+codeDep+'"'+','
+			+'"ds039.pcodigod":"'+codeDep+'"'+','
 			url2 = url2 + '"df49":"include%25EE%2580%25800%25EE%2580%2580IN%25EE%2580%2580'+codeRegion+'",'
 			url2 = url2 + '"df1131":"include%25EE%2580%25801%25EE%2580%2580IN%25EE%2580%2580'+codeRegion2+'",'
 			url2 = url2 + '"df96":"include%25EE%2580%25800%25EE%2580%2580IN%25EE%2580%2580'+codeDep+'",'

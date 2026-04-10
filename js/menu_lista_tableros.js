@@ -129,11 +129,22 @@ function lista_tableros(){
 				},
 				"IPUF_VOL":					{"tablero":"p_vfn1nub8qd", 
 											  "ficha":"https://drive.google.com/file/d/1Df62ZHteBJX0pS2nSyaEn0_zlqxE6qJX/view?usp=drive_link"
-				}
-
-				
-					
-	
+				},
+				"T_Verduras_BQ":			{"tablero":"p_c7z0yosg1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Legumbres_BQ":			{"tablero":"p_83tywwsg1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Cereales_BQ":			{"tablero":"p_ofjkyysg1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Frutas_BQ":				{"tablero":"p_5mbwhblh1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Productos_lacteos_BQ":	{"tablero":"p_ebnwgflh1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Productos_carnicos_BQ":	{"tablero":"p_jr7h5hlh1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Raices_tuberculos_y_platanos_BQ": {"tablero":"p_of0ewslh1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"T_Huevos_BQ":				{"tablero":"p_cs3g2wlh1d", "ficha":"https://drive.google.com/file/d/1YJukpvbYnYcsBiWcN1kQTyLgWyNSwFvr/view?usp=drive_link"},
+				"RT_Compra_mas_BQ":			{"tablero":"p_bnb1xhqg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+				"RT_Prepara_mas_BQ":		{"tablero":"p_wqcfpxrg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+				"RT_Humedad_temperatura_BQ":{"tablero":"p_fwuno1rg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+				"RT_Mala_conservacion_BQ":	{"tablero":"p_mm3bg8rg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+				"RT_Vencimiento_BQ":		{"tablero":"p_i1dygdsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+				"RT_Falta_refrigeracion_BQ":{"tablero":"p_4oaynfsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+				"RT_Exceso_tiempo_BQ":		{"tablero":"p_sr705lsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"}
 			};
 	return tableros;
 } 

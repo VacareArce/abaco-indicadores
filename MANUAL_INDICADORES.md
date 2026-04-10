@@ -6,6 +6,13 @@ El sistema vincula tableros de Google Looker Studio (construidos sobre BigQuery)
 
 ---
 
+## 🔗 Accesos Oficiales del Proyecto
+Para agilizar el proceso de adición de indicadores, conserve estos enlaces:
+* **Tablero Master en Looker Studio (Edición):** [Abrir Looker Studio](https://lookerstudio.google.com/u/0/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/)
+* **Carpeta de Fichas Técnicas (Drive):** [Abrir Google Drive](https://drive.google.com/drive/folders/1ufyIcF38-72favAaVjIb8BvZvyznuy3m)
+
+---
+
 ## Preparación: Datos Requeridos
 
 Antes de tocar el código fuente, recopile la siguiente información sobre el nuevo indicador:
@@ -15,6 +22,13 @@ Antes de tocar el código fuente, recopile la siguiente información sobre el nu
 3. **Enlace de Google Drive:** URL pública de la ficha técnica en PDF.
 4. **Nivel de Granularidad (Territorialidad):** Determine si los datos en BigQuery de este indicador están desglosados detalladamente a nivel de **Municipio** o agregados a nivel de **Departamento**.
 5. **ID de la Fuente de Datos (`dsXXX`):** Si esto requiere una conexión nueva a BigQuery en Looker Studio, este le asignará un identificador (ej. `ds025`). Deberá conocer cuál es.
+
+> **⚠️ REQUISITO CRÍTICO EN LOOKER STUDIO (Permitir URL):** 
+> Para que el dashboard web no cargue sus gráficas "en blanco", es **estrictamente obligatorio** habilitar la inyección de la web en su origen de datos:
+> 1. En Looker Studio, vaya al menú superior **Recurso > Gestionar variables (parámetros)**.
+> 2. Busque el nombre del parámetro requerido en su nueva fuente de datos (ej. `pcodigod` o `pcodigom`).
+> 3. Active la casilla de configuración **"Modificar en la URL"**. 
+> Si no hace esto, Looker Studio se protegerá y rechazará cualquier cruce geográfico que le envíe la web.
 
 ---
 

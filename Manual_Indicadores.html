@@ -188,6 +188,14 @@
     
     <hr>
 
+    <div class="step-block" style="background-color: #f6fcff; border-color: #b3e5fc; padding: 20px 30px; margin-bottom: 35px;">
+        <h3 style="margin-top: 0; color: #0288d1; display: flex; align-items: center;">🔗 Accesos Oficiales del Proyecto</h3>
+        <ul style="margin-bottom: 0;">
+            <li><strong>Tablero Master (Edición):</strong> <a href="https://lookerstudio.google.com/u/0/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/" target="_blank" style="color: var(--abaco-naranja); text-decoration: none; font-weight: bold;">Abrir Looker Studio</a></li>
+            <li><strong>Fichas Técnicas (Drive):</strong> <a href="https://drive.google.com/drive/folders/1ufyIcF38-72favAaVjIb8BvZvyznuy3m" target="_blank" style="color: var(--abaco-naranja); text-decoration: none; font-weight: bold;">Abrir Carpeta de Google Drive</a></li>
+        </ul>
+    </div>
+
     <div class="toc">
         <h3 class="toc-title">Índice Rápido de Navegación</h3>
         <ul>
@@ -209,6 +217,17 @@
             <li><strong>Nivel Geográfico:</strong> El entendimiento absoluto de si los datos en BigQuery están detallados por <strong>Municipio</strong> o consolidados por <strong>Departamento</strong>.</li>
             <li><strong>ID Sequencial de Datos:</strong> El identificador de fuente de datos asignado internamente por Looker Studio (ej. <code>ds025</code>).</li>
         </ul>
+
+        <div class="alert" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100; margin-top: 20px;">
+            <h4 style="margin-top: 0; display: flex; align-items: center;">⚠️ Requisito Crítico en Looker Studio</h4>
+            Para que los filtros cruzados de ABACO funcionen y las gráficas nunca carguen "vacías o en blanco", es <strong>estrictamente obligatorio</strong> habilitar este permiso:
+            <ol style="margin-top: 10px; margin-bottom: 0;">
+                <li>En su tablero de Looker Studio, despliegue el menú superior <strong>Recurso > Gestionar variables (parámetros)</strong>.</li>
+                <li>Visualice el parámetro de cruce (como <code>pcodigod</code> o <code>pcodigom</code>) asociado a su nueva tabla o base de datos.</li>
+                <li>Asegúrese de activar la casilla de verificación <strong>"Modificar en la URL"</strong>.</li>
+            </ol>
+            Si se obvia este paso, Looker ignorará silenciosamente la orden geográfica de la página web.
+        </div>
     </div>
 
     <div class="step-block" id="paso-1">
