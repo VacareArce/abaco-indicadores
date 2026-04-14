@@ -109,6 +109,133 @@
     text-align: right;
 }
 
+.bq-map-controls {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin: 8px 0 10px;
+}
+
+.bq-map-view-switch {
+    display: flex;
+    gap: 8px;
+    margin: 6px 0 8px;
+}
+
+.bq-map-view-btn {
+    background: #e6f4f4;
+    border: 1px solid #16a6a8;
+    border-radius: 20px;
+    color: #0f7b7d;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+}
+
+.bq-map-view-btn.active {
+    background: #16a6a8;
+    color: #fff;
+}
+
+.bq-map-compare-controls {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    margin: 8px 0 10px;
+}
+
+.bq-map-compare-controls label,
+.bq-map-compare-latest {
+    color: #4d4d4d;
+    font-size: 13px;
+}
+
+.bq-map-compare-select {
+    border: 1px solid #d2d2d2;
+    border-radius: 8px;
+    color: #4d4d4d;
+    font-size: 13px;
+    padding: 7px 10px;
+}
+
+.bq-map-btn {
+    background: #16a6a8;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 12px;
+}
+
+.bq-map-btn:disabled {
+    background: #a8d0d1;
+    cursor: not-allowed;
+}
+
+.bq-map-page {
+    color: #4d4d4d;
+    font-size: 13px;
+    min-width: 110px;
+    text-align: center;
+}
+
+.bq-map-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bq-map-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.bq-map-year {
+    background: #f6f6f6;
+    color: #4d4d4d;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.bq-map-canvas {
+    height: 250px;
+    width: 100%;
+}
+
+.bq-map-empty {
+    color: #666;
+    font-size: 13px;
+    padding: 10px;
+    text-align: center;
+}
+
+.bq-map-legend {
+    align-items: center;
+    color: #5b5b5b;
+    display: flex;
+    font-size: 12px;
+    gap: 8px;
+    justify-content: center;
+    margin: 4px 0 10px;
+}
+
+.bq-map-legend-bar {
+    background: linear-gradient(90deg, #fff5bf 0%, #ffd166 35%, #f8961e 65%, #e85d04 100%);
+    border-radius: 8px;
+    height: 8px;
+    width: 140px;
+}
+
 .bq-download-btn {
     background: #16a6a8;
     border: none;
@@ -244,4 +371,18 @@
     .bq-download-btn { width: 100%; }
     .bq-chart-source-line { font-size: 15px; }
     .bq-chart-region-line { font-size: 15px; }
+    .bq-map-controls {
+        align-items: stretch;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .bq-map-view-switch {
+        flex-direction: column;
+    }
+    .bq-map-btn { width: 100%; }
+    .bq-map-compare-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .bq-map-grid { grid-template-columns: 1fr; }
 }

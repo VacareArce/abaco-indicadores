@@ -2,11 +2,21 @@
     let chartInstance = null;
     let activeIndicator = null;
     let currentBQSubTab = 'grafica';
+    let mapPayload = null;
+    let mapPageIndex = 0;
+    let currentMapView = 'series';
+    let selectedCompareYear = null;
+    let mapInstances = [];
+    let mapGeoJsonPromise = null;
+    let mapRenderVersion = 0;
 
     const BQ_SUFFIX = '_BQ';
     const apiEndpoint = 'api/charts_bq.php';
     const rawApiEndpoint = 'api/charts_bq_raw.php';
     const exportApiEndpoint = 'api/charts_bq_export.php';
+    const mapApiEndpoint = 'api/charts_bq_map.php';
+    const mapGeoJsonPath = 'map/ColDepSNVlite.geojson';
+    const MAPS_PER_PAGE = 4;
     let downloadContext = null;
 
     function el(id) {
@@ -44,6 +54,12 @@
         tableIcon.style.display = isVisible ? '' : 'none';
     }
 
+    function setMapIconVisible(isVisible) {
+        const mapIcon = el('mapa');
+        if (!mapIcon) return;
+        mapIcon.style.display = isVisible ? '' : 'none';
+    }
+
     function setActiveSidebarIcon(iconId) {
         document.querySelectorAll('.icon-link').forEach(link => {
             link.classList.remove('active');
@@ -58,19 +74,37 @@
     function setBQSubTab(view) {
         const chartPanel = el('bq-chart-panel');
         const tablePanel = el('bq-table-panel');
+        const mapPanel = el('bq-map-panel');
 
-        if (!chartPanel || !tablePanel) return;
+        if (!chartPanel || !tablePanel || !mapPanel) return;
 
         if (view === 'tabla') {
             chartPanel.style.display = 'none';
             tablePanel.style.display = 'block';
+            mapPanel.style.display = 'none';
             currentBQSubTab = 'tabla';
             setActiveSidebarIcon('tabla');
             return;
         }
 
+        if (view === 'mapa') {
+            chartPanel.style.display = 'none';
+            tablePanel.style.display = 'none';
+            mapPanel.style.display = 'block';
+            currentBQSubTab = 'mapa';
+            setActiveSidebarIcon('mapa');
+            updateMapModeLayout();
+            if (mapPayload) {
+                renderCurrentMapView();
+            } else {
+                clearMapPanel('Cargando mapas...');
+            }
+            return;
+        }
+
         chartPanel.style.display = 'block';
         tablePanel.style.display = 'none';
+        mapPanel.style.display = 'none';
         currentBQSubTab = 'grafica';
         setActiveSidebarIcon('grafica');
     }
@@ -78,6 +112,231 @@
     function isBQModeActive() {
         const chartView = el('bq-chart-view');
         return !!(activeIndicator && isBQIndicator(activeIndicator) && chartView && chartView.style.display !== 'none');
+    }
+
+    function normalizeDeptCode(code) {
+        const numeric = String(code || '').replace(/\D+/g, '');
+        return numeric.padStart(2, '0');
+    }
+
+    function formatMapPercent(value) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return 'N/D';
+        }
+        return `${Number(value).toFixed(2).replace('.', ',')} %`;
+    }
+
+    function mapColor(value, min, max) {
+        if (value === null || value === undefined || Number.isNaN(Number(value))) {
+            return '#d8d8d8';
+        }
+
+        if (min === null || min === undefined || max === null || max === undefined || min === max) {
+            return '#f8961e';
+        }
+
+        const ratio = Math.max(0, Math.min(1, (Number(value) - min) / (max - min)));
+        if (ratio < 0.25) return '#fff5bf';
+        if (ratio < 0.5) return '#ffd166';
+        if (ratio < 0.75) return '#f8961e';
+        return '#e85d04';
+    }
+
+    async function loadMapGeoJson() {
+        if (!mapGeoJsonPromise) {
+            mapGeoJsonPromise = fetch(mapGeoJsonPath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('No fue posible cargar el archivo geojson de departamentos.');
+                    }
+                    return response.json();
+                });
+        }
+
+        return mapGeoJsonPromise;
+    }
+
+    function destroyMapInstances() {
+        mapInstances.forEach(instance => {
+            try {
+                instance.remove();
+            } catch (error) {
+                // noop
+            }
+        });
+        mapInstances = [];
+    }
+
+    function updateMapPager(totalPages) {
+        const prevBtn = el('bq-map-prev');
+        const nextBtn = el('bq-map-next');
+        const page = el('bq-map-page');
+        if (page) {
+            const total = Math.max(totalPages, 1);
+            page.textContent = `Pagina ${Math.min(mapPageIndex + 1, total)} de ${total}`;
+        }
+        if (prevBtn) {
+            prevBtn.disabled = mapPageIndex <= 0;
+        }
+        if (nextBtn) {
+            nextBtn.disabled = mapPageIndex >= totalPages - 1;
+        }
+    }
+
+    function setActiveMapViewButton() {
+        const seriesBtn = el('bq-map-view-series');
+        const compareBtn = el('bq-map-view-compare');
+        if (seriesBtn) {
+            seriesBtn.classList.toggle('active', currentMapView === 'series');
+        }
+        if (compareBtn) {
+            compareBtn.classList.toggle('active', currentMapView === 'compare');
+        }
+    }
+
+    function updateMapModeLayout() {
+        const pager = el('bq-map-controls');
+        const compareControls = el('bq-map-compare-controls');
+        const grid = el('bq-map-grid');
+        const compareGrid = el('bq-map-compare-grid');
+
+        setActiveMapViewButton();
+
+        if (pager) {
+            pager.style.display = currentMapView === 'series' ? 'flex' : 'none';
+        }
+
+        if (compareControls) {
+            compareControls.style.display = currentMapView === 'compare' ? 'flex' : 'none';
+        }
+
+        if (grid) {
+            grid.style.display = currentMapView === 'series' ? 'grid' : 'none';
+        }
+
+        if (compareGrid) {
+            compareGrid.style.display = currentMapView === 'compare' ? 'grid' : 'none';
+        }
+    }
+
+    function setMapView(view) {
+        currentMapView = view === 'compare' ? 'compare' : 'series';
+        updateMapModeLayout();
+        if (currentBQSubTab === 'mapa' && mapPayload) {
+            renderCurrentMapView();
+        }
+    }
+
+    function renderCurrentMapView() {
+        if (currentMapView === 'compare') {
+            renderMapCompareSafe();
+            return;
+        }
+        renderMapPageSafe();
+    }
+
+    function getMapScale() {
+        return {
+            min: mapPayload && mapPayload.scale && mapPayload.scale.min !== undefined ? mapPayload.scale.min : null,
+            max: mapPayload && mapPayload.scale && mapPayload.scale.max !== undefined ? mapPayload.scale.max : null
+        };
+    }
+
+    function createMapCardHtml(year, containerId) {
+        return `<div class="bq-map-card"><div class="bq-map-year">${year}</div><div id="${containerId}" class="bq-map-canvas"></div></div>`;
+    }
+
+    function renderLeafletDeptMap(containerId, geoData, values, selectedCode, min, max) {
+        const mapContainer = el(containerId);
+        if (!mapContainer) {
+            return null;
+        }
+        if (mapContainer._leaflet_id) {
+            mapContainer._leaflet_id = null;
+        }
+
+        const map = L.map(containerId, {
+            zoomControl: false,
+            attributionControl: false,
+            dragging: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            scrollWheelZoom: false,
+            boxZoom: false,
+            keyboard: false
+        });
+
+        const geoLayer = L.geoJSON(geoData, {
+            style: feature => {
+                const depCode = normalizeDeptCode(feature.properties.DPTO_CCDGO);
+                const value = values[depCode];
+                const selected = depCode === selectedCode;
+
+                return {
+                    color: selected ? '#0d6e6f' : '#ffffff',
+                    weight: selected ? 2.8 : 1,
+                    fillColor: mapColor(value, min, max),
+                    fillOpacity: selected ? 0.92 : 0.82
+                };
+            },
+            onEachFeature: (feature, layer) => {
+                const depCode = normalizeDeptCode(feature.properties.DPTO_CCDGO);
+                const value = values[depCode];
+                const depName = feature.properties.DPTO_CNMBR || feature.properties.name || depCode;
+                const highlightLabel = depCode === selectedCode ? ' (Seleccionado)' : '';
+                layer.bindTooltip(`${depName}${highlightLabel}<br>${formatMapPercent(value)}`);
+            }
+        }).addTo(map);
+
+        const bounds = geoLayer.getBounds();
+        if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [4, 4] });
+        }
+
+        return map;
+    }
+
+    function clearMapPanel(message) {
+        mapRenderVersion += 1;
+        mapPageIndex = 0;
+        destroyMapInstances();
+
+        const grid = el('bq-map-grid');
+        const compareGrid = el('bq-map-compare-grid');
+        const empty = el('bq-map-empty');
+        const legend = el('bq-map-legend');
+        const latestYearLabel = el('bq-map-latest-year');
+        const compareYearSelect = el('bq-map-compare-year');
+
+        if (grid) {
+            grid.innerHTML = '';
+        }
+
+        if (compareGrid) {
+            compareGrid.innerHTML = '';
+        }
+
+        if (empty) {
+            empty.textContent = message || 'No hay datos para construir mapas departamentales.';
+            empty.style.display = 'block';
+        }
+
+        if (legend) {
+            legend.style.display = 'none';
+        }
+
+        if (latestYearLabel) {
+            latestYearLabel.textContent = 'N/D';
+        }
+
+        if (compareYearSelect) {
+            compareYearSelect.innerHTML = '';
+        }
+
+        selectedCompareYear = null;
+        updateMapModeLayout();
+
+        updateMapPager(1);
     }
 
     function clearRawTable(message) {
@@ -156,6 +415,205 @@
         return payload;
     }
 
+    async function fetchMapData(indicator, codigoD) {
+        const params = new URLSearchParams({ indicator, codigoD });
+        const response = await fetch(`${mapApiEndpoint}?${params.toString()}`);
+        const payload = await response.json();
+
+        if (!response.ok || !payload.ok) {
+            throw new Error(payload.error || 'No fue posible cargar los mapas departamentales.');
+        }
+
+        return payload;
+    }
+
+    async function renderMapPage() {
+        const renderVersion = ++mapRenderVersion;
+        const indicatorAtStart = activeIndicator;
+        if (!mapPayload || !isBQIndicator(indicatorAtStart)) {
+            clearMapPanel('No hay datos para construir mapas departamentales.');
+            return;
+        }
+
+        const years = Array.isArray(mapPayload.years) ? mapPayload.years : [];
+        if (!years.length) {
+            clearMapPanel('No hay anios disponibles para este indicador.');
+            return;
+        }
+
+        const totalPages = Math.ceil(years.length / MAPS_PER_PAGE);
+        mapPageIndex = Math.min(Math.max(mapPageIndex, 0), Math.max(totalPages - 1, 0));
+        updateMapPager(totalPages);
+
+        const grid = el('bq-map-grid');
+        const empty = el('bq-map-empty');
+        const legend = el('bq-map-legend');
+
+        if (!grid || !empty || !legend) {
+            return;
+        }
+
+        const yearsToRender = years.slice(mapPageIndex * MAPS_PER_PAGE, (mapPageIndex + 1) * MAPS_PER_PAGE);
+        if (!yearsToRender.length) {
+            clearMapPanel('No hay datos para esta pagina.');
+            return;
+        }
+
+        destroyMapInstances();
+        grid.innerHTML = yearsToRender
+            .map(year => createMapCardHtml(year, `bq-map-canvas-${year}`))
+            .join('');
+
+        const geoData = await loadMapGeoJson();
+        if (indicatorAtStart !== activeIndicator || renderVersion !== mapRenderVersion) {
+            return;
+        }
+
+        const scale = getMapScale();
+        const selectedCode = normalizeDeptCode((mapPayload.meta && mapPayload.meta.selectedCode) || '');
+
+        yearsToRender.forEach(year => {
+            if (renderVersion !== mapRenderVersion) {
+                return;
+            }
+
+            const yearKey = String(year);
+            const values = mapPayload.valuesByYear && mapPayload.valuesByYear[yearKey]
+                ? mapPayload.valuesByYear[yearKey]
+                : {};
+
+            const map = renderLeafletDeptMap(`bq-map-canvas-${year}`, geoData, values, selectedCode, scale.min, scale.max);
+
+            if (!map) {
+                return;
+            }
+
+            mapInstances.push(map);
+        });
+
+        empty.style.display = 'none';
+        legend.style.display = 'flex';
+    }
+
+    function syncCompareSelector(years, latestYear) {
+        const compareYearSelect = el('bq-map-compare-year');
+        const latestYearLabel = el('bq-map-latest-year');
+
+        if (latestYearLabel) {
+            latestYearLabel.textContent = String(latestYear);
+        }
+
+        if (!compareYearSelect) {
+            return;
+        }
+
+        const compareCandidates = years.filter(y => y !== latestYear);
+        const fallbackYear = compareCandidates[compareCandidates.length - 1] || latestYear;
+
+        if (!selectedCompareYear || !compareCandidates.includes(Number(selectedCompareYear))) {
+            selectedCompareYear = fallbackYear;
+        }
+
+        compareYearSelect.innerHTML = compareCandidates
+            .map(y => `<option value="${y}">${y}</option>`)
+            .join('');
+
+        compareYearSelect.disabled = compareCandidates.length === 0;
+
+        if (compareCandidates.length > 0) {
+            compareYearSelect.value = String(selectedCompareYear);
+        }
+    }
+
+    async function renderMapCompare() {
+        const renderVersion = ++mapRenderVersion;
+        const indicatorAtStart = activeIndicator;
+        if (!mapPayload || !isBQIndicator(indicatorAtStart)) {
+            clearMapPanel('No hay datos para construir mapas departamentales.');
+            return;
+        }
+
+        const years = Array.isArray(mapPayload.years) ? mapPayload.years : [];
+        if (!years.length) {
+            clearMapPanel('No hay anios disponibles para este indicador.');
+            return;
+        }
+
+        const latestYear = years[years.length - 1];
+        syncCompareSelector(years, latestYear);
+
+        const compareGrid = el('bq-map-compare-grid');
+        const empty = el('bq-map-empty');
+        const legend = el('bq-map-legend');
+
+        if (!compareGrid || !empty || !legend) {
+            return;
+        }
+
+        const compareYear = Number(selectedCompareYear || latestYear);
+        destroyMapInstances();
+
+        compareGrid.innerHTML = [
+            createMapCardHtml(latestYear, `bq-map-compare-canvas-${latestYear}`),
+            createMapCardHtml(compareYear, `bq-map-compare-canvas-${compareYear}`)
+        ].join('');
+
+        const geoData = await loadMapGeoJson();
+        if (indicatorAtStart !== activeIndicator || renderVersion !== mapRenderVersion) {
+            return;
+        }
+
+        const selectedCode = normalizeDeptCode((mapPayload.meta && mapPayload.meta.selectedCode) || '');
+        const scale = getMapScale();
+
+        const latestValues = mapPayload.valuesByYear && mapPayload.valuesByYear[String(latestYear)]
+            ? mapPayload.valuesByYear[String(latestYear)]
+            : {};
+        const compareValues = mapPayload.valuesByYear && mapPayload.valuesByYear[String(compareYear)]
+            ? mapPayload.valuesByYear[String(compareYear)]
+            : {};
+
+        const latestMap = renderLeafletDeptMap(
+            `bq-map-compare-canvas-${latestYear}`,
+            geoData,
+            latestValues,
+            selectedCode,
+            scale.min,
+            scale.max
+        );
+        if (latestMap) {
+            mapInstances.push(latestMap);
+        }
+
+        const compareMap = renderLeafletDeptMap(
+            `bq-map-compare-canvas-${compareYear}`,
+            geoData,
+            compareValues,
+            selectedCode,
+            scale.min,
+            scale.max
+        );
+        if (compareMap) {
+            mapInstances.push(compareMap);
+        }
+
+        updateMapPager(1);
+        empty.style.display = 'none';
+        legend.style.display = 'flex';
+    }
+
+    function renderMapPageSafe() {
+        renderMapPage().catch(error => {
+            clearMapPanel(error && error.message ? error.message : 'No fue posible cargar los mapas departamentales.');
+        });
+    }
+
+    function renderMapCompareSafe() {
+        renderMapCompare().catch(error => {
+            clearMapPanel(error && error.message ? error.message : 'No fue posible cargar los mapas departamentales.');
+        });
+    }
+
     function updateDownloadContext(indicator, codigoD) {
         downloadContext = { indicator, codigoD };
     }
@@ -166,6 +624,8 @@
         if (iframe) iframe.style.display = 'none';
         if (chartView) chartView.style.display = 'block';
         setTableIconVisible(true);
+        setMapIconVisible(true);
+        updateMapModeLayout();
         setBQSubTab(currentBQSubTab);
     }
 
@@ -185,6 +645,10 @@
         if (chartView) chartView.style.display = 'none';
         if (errorBox) errorBox.style.display = 'none';
         setTableIconVisible(false);
+        setMapIconVisible(false);
+        mapPayload = null;
+        mapPageIndex = 0;
+        clearMapPanel('No hay datos para construir mapas departamentales.');
         currentBQSubTab = 'grafica';
         setActiveSidebarIcon('grafica');
         clearRawTable('No hay datos crudos para este filtro.');
@@ -334,14 +798,18 @@
         setLoading(true);
         showError('');
         clearRawTable('Cargando datos crudos...');
+        clearMapPanel('Cargando mapas...');
+        mapPayload = null;
+        mapPageIndex = 0;
         updateDownloadContext(indicator, codigoD);
 
         const params = new URLSearchParams({ indicator, codigoD });
 
         try {
-            const [response, rawResult] = await Promise.all([
+            const [response, rawResult, mapResult] = await Promise.all([
                 fetch(`${apiEndpoint}?${params.toString()}`),
-                fetchRawData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err }))
+                fetchRawData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err })),
+                fetchMapData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err }))
             ]);
             const payload = await response.json();
 
@@ -367,6 +835,14 @@
             } else {
                 clearRawTable('No fue posible cargar la tabla de datos crudos.');
             }
+
+            if (mapResult.ok) {
+                mapPayload = mapResult.data;
+                mapPageIndex = 0;
+            } else {
+                mapPayload = null;
+                clearMapPanel('No fue posible cargar los mapas departamentales.');
+            }
             setBQSubTab(currentBQSubTab);
             setLoading(false);
         } catch (error) {
@@ -377,6 +853,8 @@
             setText('bq-kpi-department', 'N/D');
             setText('bq-kpi-municipality', 'N/D');
             clearRawTable('No fue posible cargar la tabla de datos crudos.');
+            mapPayload = null;
+            clearMapPanel('No fue posible cargar los mapas departamentales.');
             if (chartInstance) {
                 chartInstance.destroy();
                 chartInstance = null;
@@ -393,12 +871,56 @@
         });
     }
 
+    const mapPrevBtn = el('bq-map-prev');
+    if (mapPrevBtn) {
+        mapPrevBtn.addEventListener('click', function () {
+            if (!mapPayload || mapPageIndex <= 0) return;
+            mapPageIndex -= 1;
+            renderMapPageSafe();
+        });
+    }
+
+    const mapViewSeriesBtn = el('bq-map-view-series');
+    if (mapViewSeriesBtn) {
+        mapViewSeriesBtn.addEventListener('click', function () {
+            setMapView('series');
+        });
+    }
+
+    const mapViewCompareBtn = el('bq-map-view-compare');
+    if (mapViewCompareBtn) {
+        mapViewCompareBtn.addEventListener('click', function () {
+            setMapView('compare');
+        });
+    }
+
+    const mapCompareYearSelect = el('bq-map-compare-year');
+    if (mapCompareYearSelect) {
+        mapCompareYearSelect.addEventListener('change', function () {
+            selectedCompareYear = Number(this.value);
+            if (currentBQSubTab === 'mapa' && currentMapView === 'compare' && mapPayload) {
+                renderMapCompareSafe();
+            }
+        });
+    }
+
+    const mapNextBtn = el('bq-map-next');
+    if (mapNextBtn) {
+        mapNextBtn.addEventListener('click', function () {
+            if (!mapPayload) return;
+            const totalPages = Math.ceil((mapPayload.years || []).length / MAPS_PER_PAGE);
+            if (mapPageIndex >= totalPages - 1) return;
+            mapPageIndex += 1;
+            renderMapPageSafe();
+        });
+    }
+
     window.handleBQContentType = function (tipo) {
         if (!isBQModeActive()) {
             return false;
         }
 
-        if (tipo === 'grafica' || tipo === 'tabla') {
+        if (tipo === 'grafica' || tipo === 'tabla' || tipo === 'mapa') {
             setBQSubTab(tipo);
             return true;
         }
@@ -409,4 +931,6 @@
     window.isBQIndicator = isBQIndicator;
     window.renderBQChart = renderBQChart;
     window.hideBQChartView = hideChartView;
+
+    updateMapModeLayout();
 })();

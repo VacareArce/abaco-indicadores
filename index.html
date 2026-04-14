@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="css/menuprincipal.css">
     <link rel="stylesheet" type="text/css" href="css/bq_charts.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
 <body>
     <div id="horizontal-menu">
@@ -237,6 +238,30 @@
 									<button id="bq-download-csv" class="bq-download-btn" type="button" disabled>Descargar Excel (CSV)</button>
 								</div>
 								</div>
+								<div id="bq-map-panel" style="display:none;">
+									<div class="bq-map-view-switch">
+										<button id="bq-map-view-series" class="bq-map-view-btn active" type="button">Serie de anos</button>
+										<button id="bq-map-view-compare" class="bq-map-view-btn" type="button">Comparar anos</button>
+									</div>
+									<div class="bq-map-controls">
+										<button id="bq-map-prev" class="bq-map-btn" type="button">Anterior</button>
+										<div id="bq-map-page" class="bq-map-page">Pagina 1 de 1</div>
+										<button id="bq-map-next" class="bq-map-btn" type="button">Siguiente</button>
+									</div>
+									<div id="bq-map-compare-controls" class="bq-map-compare-controls" style="display:none;">
+										<div class="bq-map-compare-latest">Ano mas reciente: <strong id="bq-map-latest-year">N/D</strong></div>
+										<label for="bq-map-compare-year">Comparar con</label>
+										<select id="bq-map-compare-year" class="bq-map-compare-select"></select>
+									</div>
+									<div id="bq-map-grid" class="bq-map-grid"></div>
+									<div id="bq-map-compare-grid" class="bq-map-grid" style="display:none;"></div>
+									<div class="bq-map-legend" id="bq-map-legend" style="display:none;">
+										<span>Bajo</span>
+										<span class="bq-map-legend-bar" aria-hidden="true"></span>
+										<span>Alto</span>
+									</div>
+									<div id="bq-map-empty" class="bq-map-empty" style="display:none;">No hay datos para construir mapas departamentales.</div>
+								</div>
 								<div class="bq-chart-footer">
 									<div class="bq-chart-source-line"><strong>Fuente:</strong> <span id="bq-chart-source">Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.</span></div>
 									<div class="bq-chart-region-line"><strong>Region:</strong> <span id="bq-chart-region">N/D</span></div>
@@ -263,6 +288,7 @@
 	<!-- Inserta tu archivo JavaScript aquí -->
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 	<script src="js/territorios.js"></script>
 	<script src="js/menu_lista_tableros.js"></script>
 	<script src="js/charts_bq.js"></script>
