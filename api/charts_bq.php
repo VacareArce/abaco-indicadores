@@ -19,7 +19,6 @@ require_once $autoloadPath;
 $config = require __DIR__ . '/config.php';
 
 $sourceAlimentos = 'Departamento Administrativo Nacional de Estadística (DANE). Anexos estadísticos de la Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.';
-$sourceFrutas = 'Departamento Administrativo Nacional de Estadística (DANE). Anexos estadísticos de la Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024..';
 
 $indicatorMap = [
     'T_Verduras_BQ' => ['table' => 'T_Verduras_BQ', 'source' => $sourceAlimentos],
@@ -27,7 +26,7 @@ $indicatorMap = [
     'T_Cereales_BQ' => ['table' => 'T_Cereales_BQ', 'source' => $sourceAlimentos],
     'T_Frutas_BQ' => [
         'table' => 'T_Frutas_BQ',
-        'source' => $sourceFrutas
+        'source' => $sourceAlimentos
     ],
     'T_Productos_lacteos_BQ' => ['table' => 'T_Productos_lacteos_BQ', 'source' => $sourceAlimentos],
     'T_Productos_carnicos_BQ' => ['table' => 'T_Productos_carnicos_BQ', 'source' => $sourceAlimentos],
