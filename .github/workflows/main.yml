@@ -16,4 +16,4 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           port: ${{ secrets.SERVER_PORT }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: /home4/axodasmy/estadisticas.abaco.org.co/indicadores/deploy.sh
+          script: bash /home4/axodasmy/estadisticas.abaco.org.co/indicadores/deploy.sh
