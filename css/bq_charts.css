@@ -104,6 +104,73 @@
     margin: 8px 0 6px;
 }
 
+.bq-table-actions {
+    margin: 8px 0 6px;
+    text-align: right;
+}
+
+.bq-download-btn {
+    background: #16a6a8;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 12px;
+}
+
+.bq-download-btn:disabled {
+    background: #a8d0d1;
+    cursor: not-allowed;
+}
+
+.bq-raw-table-wrap {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.bq-raw-table-scroll {
+    max-height: 280px;
+    overflow: auto;
+}
+
+.bq-raw-table {
+    border-collapse: collapse;
+    min-width: 760px;
+    width: 100%;
+}
+
+.bq-raw-table thead th {
+    background: #f0f0f0;
+    border-bottom: 1px solid #ddd;
+    color: #4d4d4d;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 10px;
+    position: sticky;
+    text-align: left;
+    top: 0;
+    z-index: 2;
+}
+
+.bq-raw-table tbody td {
+    border-bottom: 1px solid #ececec;
+    color: #444;
+    font-size: 12px;
+    padding: 7px 10px;
+    white-space: nowrap;
+}
+
+.bq-raw-table-empty {
+    color: #666;
+    font-size: 13px;
+    padding: 10px;
+    text-align: center;
+}
+
 .bq-legend-item {
     align-items: center;
     display: inline-flex;
@@ -173,6 +240,8 @@
     .bq-chart-canvas-wrap { height: 320px; }
     .bq-custom-legend { gap: 14px; }
     .bq-legend-item { font-size: 14px; }
+    .bq-table-actions { text-align: left; }
+    .bq-download-btn { width: 100%; }
     .bq-chart-source-line { font-size: 15px; }
     .bq-chart-region-line { font-size: 15px; }
 }

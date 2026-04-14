@@ -152,6 +152,10 @@ function lista_tableros(){
 
 // contenido de los tableros
 function updateContent(tipo) {
+    if (window.handleBQContentType && window.handleBQContentType(tipo)) {
+        return;
+    }
+
     // Obtener todos los elementos iframe
     const iframes = document.querySelectorAll('iframe');
 

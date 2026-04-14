@@ -162,6 +162,11 @@
 						</svg>
 				</svg>
 			</a>
+			<a href="#" class="icon-link" onclick="updateContent('tabla');" id="tabla" title="Tabla" style="display:none;">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+					<path class="icon-color" d="M3 3h18v18H3V3zm2 2v3h14V5H5zm0 5v3h4v-3H5zm6 0v3h8v-3h-8zm-6 5v4h4v-4H5zm6 0v4h8v-4h-8z"/>
+				</svg>
+			</a>
 		</div>
 	</div>
 
@@ -195,6 +200,7 @@
 								</div>
 								<h3 id="bq-chart-title" class="bq-chart-title">Indicador</h3>
 								<div id="bq-chart-error" class="bq-chart-error"></div>
+								<div id="bq-chart-panel">
 								<div class="bq-kpi-grid">
 									<div class="bq-kpi-card national">
 										<div class="bq-kpi-label">Nacional 2024:</div>
@@ -215,6 +221,21 @@
 								<div class="bq-custom-legend" aria-hidden="true">
 									<span class="bq-legend-item national"><span class="bq-legend-line"></span>Nacional</span>
 									<span class="bq-legend-item department"><span class="bq-legend-line"></span>Departamental</span>
+								</div>
+								</div>
+								<div id="bq-table-panel" style="display:none;">
+								<div id="bq-raw-table-wrap" class="bq-raw-table-wrap" style="display:none;">
+									<div class="bq-raw-table-scroll">
+										<table class="bq-raw-table" id="bq-raw-table">
+											<thead id="bq-raw-table-head"></thead>
+											<tbody id="bq-raw-table-body"></tbody>
+										</table>
+									</div>
+									<div id="bq-raw-table-empty" class="bq-raw-table-empty" style="display:none;">No hay datos crudos para este filtro.</div>
+								</div>
+								<div class="bq-table-actions">
+									<button id="bq-download-csv" class="bq-download-btn" type="button" disabled>Descargar Excel (CSV)</button>
+								</div>
 								</div>
 								<div class="bq-chart-footer">
 									<div class="bq-chart-source-line"><strong>Fuente:</strong> <span id="bq-chart-source">Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.</span></div>
