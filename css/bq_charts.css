@@ -198,18 +198,124 @@
     overflow: hidden;
 }
 
-.bq-map-year {
+.bq-map-card-head {
+    align-items: center;
     background: #f6f6f6;
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 10px;
+}
+
+.bq-map-year {
     color: #4d4d4d;
     font-size: 14px;
     font-weight: 700;
-    padding: 8px 10px;
-    text-align: left;
+}
+
+.bq-map-fullscreen-btn {
+    background: #fff;
+    border: 1px solid #16a6a8;
+    border-radius: 6px;
+    color: #0f7b7d;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 6px 8px;
+}
+
+.bq-map-fullscreen-btn:hover {
+    background: #e6f4f4;
+}
+
+.bq-map-fullscreen-btn:focus-visible {
+    outline: 2px solid #16a6a8;
+    outline-offset: 1px;
 }
 
 .bq-map-canvas {
     height: 250px;
     width: 100%;
+}
+
+.bq-map-card:fullscreen {
+    background: #ffffff;
+    border-radius: 0;
+    padding: 10px;
+}
+
+.bq-map-card:fullscreen .bq-map-canvas {
+    height: calc(100dvh - 74px);
+}
+
+.bq-map-card:-webkit-full-screen {
+    background: #ffffff;
+    border-radius: 0;
+    padding: 10px;
+}
+
+.bq-map-card:-webkit-full-screen .bq-map-canvas {
+    height: calc(100dvh - 74px);
+}
+
+.bq-map-grid:fullscreen {
+    background: #ffffff;
+    box-sizing: border-box;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    height: 100dvh;
+    padding: 12px;
+}
+
+.bq-map-grid:fullscreen .bq-map-card {
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.bq-map-grid:fullscreen .bq-map-canvas {
+    flex: 1;
+    height: auto;
+    min-height: 220px;
+}
+
+.bq-map-grid:-webkit-full-screen {
+    background: #ffffff;
+    box-sizing: border-box;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    height: 100dvh;
+    padding: 12px;
+}
+
+.bq-map-grid:-webkit-full-screen .bq-map-card {
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.bq-map-grid:-webkit-full-screen .bq-map-canvas {
+    flex: 1;
+    height: auto;
+    min-height: 220px;
+}
+
+@media (max-width: 1100px), (orientation: portrait) {
+    .bq-map-grid:fullscreen {
+        grid-template-columns: 1fr;
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .bq-map-grid:-webkit-full-screen {
+        grid-template-columns: 1fr;
+        grid-auto-rows: minmax(0, 1fr);
+    }
 }
 
 .bq-map-empty {

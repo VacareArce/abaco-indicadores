@@ -235,6 +235,29 @@
         renderMapPageSafe();
     }
 
+    function fitMapToStoredBounds(map) {
+        if (!map || !map.__bqBounds || !map.__bqBounds.isValid()) {
+            return;
+        }
+
+        const rawBounds = map.__bqBounds;
+        const mapSize = map.getSize();
+        const mapAspect = mapSize.y > 0 ? mapSize.x / mapSize.y : 1;
+        const lngSpan = Math.abs(rawBounds.getEast() - rawBounds.getWest());
+        const latSpan = Math.abs(rawBounds.getNorth() - rawBounds.getSouth());
+        const dataAspect = latSpan > 0 ? lngSpan / latSpan : mapAspect;
+
+        let boundsToFit = rawBounds;
+        if (dataAspect > mapAspect * 1.45) {
+            boundsToFit = rawBounds.pad(-0.22);
+        }
+
+        map.fitBounds(boundsToFit, {
+            animate: false,
+            padding: [12, 12]
+        });
+    }
+
     function getMapScale() {
         return {
             min: mapPayload && mapPayload.scale && mapPayload.scale.min !== undefined ? mapPayload.scale.min : null,
@@ -243,7 +266,7 @@
     }
 
     function createMapCardHtml(year, containerId) {
-        return `<div class="bq-map-card"><div class="bq-map-year">${year}</div><div id="${containerId}" class="bq-map-canvas"></div></div>`;
+        return `<div class="bq-map-card"><div class="bq-map-card-head"><div class="bq-map-year">${year}</div><button class="bq-map-fullscreen-btn" type="button" title="Pantalla completa" aria-label="Pantalla completa">Pantalla completa</button></div><div id="${containerId}" class="bq-map-canvas"></div></div>`;
     }
 
     function renderLeafletDeptMap(containerId, geoData, values, selectedCode, min, max) {
@@ -289,9 +312,8 @@
         }).addTo(map);
 
         const bounds = geoLayer.getBounds();
-        if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [4, 4] });
-        }
+        map.__bqBounds = bounds;
+        fitMapToStoredBounds(map);
 
         return map;
     }
@@ -608,6 +630,67 @@
         });
     }
 
+    function invalidateMapSizes() {
+        mapInstances.forEach(map => {
+            try {
+                if (map && typeof map.invalidateSize === 'function') {
+                    map.invalidateSize();
+                    fitMapToStoredBounds(map);
+                }
+            } catch (error) {
+                // noop
+            }
+        });
+    }
+
+    function requestFullScreen(element) {
+        if (!element) {
+            return;
+        }
+
+        if (element.requestFullscreen) {
+            element.requestFullscreen();
+            return;
+        }
+
+        if (element.webkitRequestFullscreen) {
+            element.webkitRequestFullscreen();
+        }
+    }
+
+    function exitFullScreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+            return;
+        }
+
+        if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+    }
+
+    function getCurrentFullScreenElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function toggleMapFullScreen(button) {
+        const card = button ? button.closest('.bq-map-card') : null;
+        const compareGrid = el('bq-map-compare-grid');
+        const target = currentMapView === 'compare' ? compareGrid : card;
+
+        if (!target) {
+            return;
+        }
+
+        const currentFsElement = getCurrentFullScreenElement();
+        if (currentFsElement === target) {
+            exitFullScreen();
+            return;
+        }
+
+        requestFullScreen(target);
+    }
+
     function renderMapCompareSafe() {
         renderMapCompare().catch(error => {
             clearMapPanel(error && error.message ? error.message : 'No fue posible cargar los mapas departamentales.');
@@ -914,6 +997,34 @@
             renderMapPageSafe();
         });
     }
+
+    const mapPanel = el('bq-map-panel');
+    if (mapPanel) {
+        mapPanel.addEventListener('click', function (event) {
+            const btn = event.target.closest('.bq-map-fullscreen-btn');
+            if (!btn) {
+                return;
+            }
+
+            toggleMapFullScreen(btn);
+        });
+    }
+
+    document.addEventListener('fullscreenchange', function () {
+        setTimeout(invalidateMapSizes, 120);
+    });
+
+    document.addEventListener('webkitfullscreenchange', function () {
+        setTimeout(invalidateMapSizes, 120);
+    });
+
+    window.addEventListener('resize', function () {
+        setTimeout(invalidateMapSizes, 120);
+    });
+
+    window.addEventListener('orientationchange', function () {
+        setTimeout(invalidateMapSizes, 180);
+    });
 
     window.handleBQContentType = function (tipo) {
         if (!isBQModeActive()) {
