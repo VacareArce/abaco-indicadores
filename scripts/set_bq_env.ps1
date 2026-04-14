@@ -1,5 +1,5 @@
 param(
-    [string]$CredentialsPath = "C:\xampp\htdocs\secret\bq-observatorio.json",
+    [string]$CredentialsPath = "C:\ruta\a\credenciales\bq-observatorio.json",
     [string]$ProjectId = "observatorio-377023",
     [string]$DatasetId = "Indicadores",
     [string]$TestTableId = "T_Frutas_BQ"

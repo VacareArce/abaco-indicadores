@@ -6,9 +6,5 @@ return [
     'projectId' => getenv('BQ_PROJECT_ID') ?: 'observatorio-377023',
     'datasetId' => getenv('BQ_DATASET_ID') ?: 'Indicadores',
     'tableId' => getenv('BQ_TEST_TABLE_ID') ?: 'T_Frutas_BQ',
-    'credentialsPath' => getenv('GOOGLE_APPLICATION_CREDENTIALS') ?: (
-        is_file('C:/xampp/htdocs/secret/bq-observatorio.json')
-            ? 'C:/xampp/htdocs/secret/bq-observatorio.json'
-            : ''
-    ),
+    'credentialsPath' => getenv('GOOGLE_APPLICATION_CREDENTIALS') ?: '',
 ];
