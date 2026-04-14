@@ -3,3 +3,4 @@
 vendor/
 .env
 service-account*.json
+api/config.local.php
