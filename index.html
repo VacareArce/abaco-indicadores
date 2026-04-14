@@ -20,6 +20,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="css/menuprincipal.css">
+    <link rel="stylesheet" type="text/css" href="css/bq_charts.css">
 </head>
 <body>
     <div id="horizontal-menu">
@@ -186,6 +187,40 @@
 					<div class="col ">
 						<div class="embed-container" style=""  >
 							<iframe id="tablero" class="iframe-content" frameborder="0" src="https://lookerstudio.google.com/embed/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/page/p_jlgbdeha4c" allowfullscreen style="display:block;"></iframe>
+							<div id="bq-chart-view" style="display:none;">
+								<div id="bq-chart-loading" class="bq-chart-loading" style="display:none;">
+									<div class="bq-loading-panel">
+										<div class="bq-loading-spinner"></div>
+									</div>
+								</div>
+								<h3 id="bq-chart-title" class="bq-chart-title">Indicador</h3>
+								<div id="bq-chart-error" class="bq-chart-error"></div>
+								<div class="bq-kpi-grid">
+									<div class="bq-kpi-card national">
+										<div class="bq-kpi-label">Nacional 2024:</div>
+										<div id="bq-kpi-national" class="bq-kpi-value">N/D</div>
+									</div>
+									<div class="bq-kpi-card department">
+										<div class="bq-kpi-label">Departamento 2024:</div>
+										<div id="bq-kpi-department" class="bq-kpi-value">N/D</div>
+									</div>
+									<div class="bq-kpi-card municipality">
+										<div class="bq-kpi-label">Municipio 2024:</div>
+										<div id="bq-kpi-municipality" class="bq-kpi-value">N/D</div>
+									</div>
+								</div>
+								<div class="bq-chart-canvas-wrap">
+									<canvas id="bq-chart-canvas"></canvas>
+								</div>
+								<div class="bq-custom-legend" aria-hidden="true">
+									<span class="bq-legend-item national"><span class="bq-legend-line"></span>Nacional</span>
+									<span class="bq-legend-item department"><span class="bq-legend-line"></span>Departamental</span>
+								</div>
+								<div class="bq-chart-footer">
+									<div class="bq-chart-source-line"><strong>Fuente:</strong> <span id="bq-chart-source">Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.</span></div>
+									<div class="bq-chart-region-line"><strong>Region:</strong> <span id="bq-chart-region">N/D</span></div>
+								</div>
+							</div>
 							<!--<iframe id="iframe-pdf" class="iframe-content" src="https://lookerstudio.google.com/embed/u/0/reporting/83c46e35-d8d8-468d-b8f4-a778f6bd2c25/page/p_73om8mbu9c" frameborder="0" style="display:none;" width="900" height="500"></iframe>-->
 						</div>
 						
@@ -194,6 +229,7 @@
 			</div>
 		</div>
 	</div>
+	<div id="bq-screen-dim" class="bq-screen-dim" style="display:none;"></div>
 
 	<!-- Script viejos, no se si sirven de algo -->
 	<script src="js/utilities.js"></script>	
@@ -204,8 +240,11 @@
 	
 
 	<!-- Inserta tu archivo JavaScript aquí -->
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 	<script src="js/territorios.js"></script>
 	<script src="js/menu_lista_tableros.js"></script>
+	<script src="js/charts_bq.js"></script>
     <!--  <script src="js/actualizar_contenido.js"></script>   -->
 	<Script>
 		var itemmenu = lista_tableros();
@@ -217,6 +256,15 @@
 		var url1pdf;
 		var url2;	
 		var url2pdf;
+		var currentIndicator = "proyeccion";
+		var regionByCode = {
+			"101": "Atlantica",
+			"102": "Oriental",
+			"103": "Central",
+			"104": "Pacifica",
+			"105": "Amazonia",
+			"106": "Bogota D.C."
+		};
 		const keys = Object.keys(depMun);
 		var urlFicha;
 		url1 = "https://lookerstudio.google.com/embed/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/page/p_tnmcpbod6c";
@@ -239,6 +287,17 @@
 		cambiarMapa("proyeccion");
 		//document.getElementById("proyeccion").classList.add("active");
 		function cambiarMapa(indicador) {
+				currentIndicator = indicador;
+				if (window.isBQIndicator && window.isBQIndicator(indicador)) {
+					const regionSeleccionada = regionByCode[codeRegion] || "N/D";
+					window.renderBQChart(indicador, codeDep, regionSeleccionada);
+					urlFicha = itemmenu[indicador]["ficha"];
+					return;
+				}
+
+				if (window.hideBQChartView) {
+					window.hideBQChartView();
+				}
 				url1 =  "https://lookerstudio.google.com/embed/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/page/"+itemmenu[indicador]["tablero"];
 				iFrameObject = document.getElementById("tablero");
 				iFrameObject.src = url1 + url2;
@@ -332,7 +391,12 @@
 			//const urlExistente =  iframeTablero.src;
 			// al parecer cuando copias un tablero los codigos se mantienen por eso URL2 sirve para los dos
 			
-			iframeTablero.src = url1+url2;
+			if (window.isBQIndicator && window.isBQIndicator(currentIndicator)) {
+				const regionSeleccionada = regionByCode[codeRegion] || "N/D";
+				window.renderBQChart(currentIndicator, codeDep, regionSeleccionada);
+			} else {
+				iframeTablero.src = url1+url2;
+			}
 			//iframePDF.src = url1pdf+url2;
 			url1pdf = url1pdf+url2pdf;
 			

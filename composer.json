@@ -1,0 +1,8 @@
+{
+  "name": "abaco-indicadores/backend",
+  "description": "PHP API utilities for BigQuery integration",
+  "type": "project",
+  "require": {
+    "google/cloud-bigquery": "^1.36"
+  }
+}

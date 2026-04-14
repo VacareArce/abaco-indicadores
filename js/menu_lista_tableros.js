@@ -184,6 +184,10 @@ function updateContent(tipo) {
         newIframe.style.display = 'block';
     }
 
+    if (tipo !== 'grafica' && window.hideBQChartView) {
+        window.hideBQChartView();
+    }
+
     if (newIconLink) {
         newIconLink.classList.add('active');
     }
