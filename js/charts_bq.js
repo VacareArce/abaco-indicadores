@@ -265,6 +265,11 @@
         };
     }
 
+    function getSortedYearsDesc() {
+        const years = Array.isArray(mapPayload && mapPayload.years) ? mapPayload.years : [];
+        return years.slice().sort((a, b) => Number(b) - Number(a));
+    }
+
     function createMapCardHtml(year, containerId) {
         return `<div class="bq-map-card"><div class="bq-map-card-head"><div class="bq-map-year">${year}</div><div><button class="bq-map-fullscreen-btn" type="button" title="Pantalla completa" aria-label="Pantalla completa">Pantalla completa</button></div></div><div id="${containerId}" class="bq-map-canvas"></div></div>`;
     }
@@ -457,7 +462,7 @@
             return;
         }
 
-        const years = Array.isArray(mapPayload.years) ? mapPayload.years : [];
+        const years = getSortedYearsDesc();
         if (!years.length) {
             clearMapPanel('No hay años disponibles para este indicador.');
             return;
@@ -530,7 +535,7 @@
         }
 
         const compareCandidates = years.filter(y => y !== latestYear);
-        const fallbackYear = compareCandidates[compareCandidates.length - 1] || latestYear;
+        const fallbackYear = compareCandidates[0] || latestYear;
 
         if (!selectedCompareYear || !compareCandidates.includes(Number(selectedCompareYear))) {
             selectedCompareYear = fallbackYear;
@@ -555,13 +560,13 @@
             return;
         }
 
-        const years = Array.isArray(mapPayload.years) ? mapPayload.years : [];
+        const years = getSortedYearsDesc();
         if (!years.length) {
             clearMapPanel('No hay años disponibles para este indicador.');
             return;
         }
 
-        const latestYear = years[years.length - 1];
+        const latestYear = years[0];
         syncCompareSelector(years, latestYear);
 
         const compareGrid = el('bq-map-compare-grid');
@@ -652,9 +657,9 @@
             return [];
         }
 
-        const years = mapPayload.years;
+        const years = getSortedYearsDesc();
         if (currentMapView === 'compare') {
-            const latestYear = years[years.length - 1];
+            const latestYear = years[0];
             const compareYear = Number(selectedCompareYear || latestYear);
             return [latestYear, compareYear].map(year => ({
                 year,
