@@ -266,7 +266,7 @@
     }
 
     function createMapCardHtml(year, containerId) {
-        return `<div class="bq-map-card"><div class="bq-map-card-head"><div class="bq-map-year">${year}</div><button class="bq-map-fullscreen-btn" type="button" title="Pantalla completa" aria-label="Pantalla completa">Pantalla completa</button></div><div id="${containerId}" class="bq-map-canvas"></div></div>`;
+        return `<div class="bq-map-card"><div class="bq-map-card-head"><div class="bq-map-year">${year}</div><div><button class="bq-map-fullscreen-btn" type="button" title="Pantalla completa" aria-label="Pantalla completa">Pantalla completa</button></div></div><div id="${containerId}" class="bq-map-canvas"></div></div>`;
     }
 
     function renderLeafletDeptMap(containerId, geoData, values, selectedCode, min, max) {
@@ -459,7 +459,7 @@
 
         const years = Array.isArray(mapPayload.years) ? mapPayload.years : [];
         if (!years.length) {
-            clearMapPanel('No hay anios disponibles para este indicador.');
+            clearMapPanel('No hay años disponibles para este indicador.');
             return;
         }
 
@@ -557,7 +557,7 @@
 
         const years = Array.isArray(mapPayload.years) ? mapPayload.years : [];
         if (!years.length) {
-            clearMapPanel('No hay anios disponibles para este indicador.');
+            clearMapPanel('No hay años disponibles para este indicador.');
             return;
         }
 
@@ -643,52 +643,237 @@
         });
     }
 
-    function requestFullScreen(element) {
-        if (!element) {
-            return;
-        }
-
-        if (element.requestFullscreen) {
-            element.requestFullscreen();
-            return;
-        }
-
-        if (element.webkitRequestFullscreen) {
-            element.webkitRequestFullscreen();
-        }
+    function escapeScriptText(text) {
+        return String(text).replace(/<\//g, '<\\/');
     }
 
-    function exitFullScreen() {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-            return;
+    function getPopupMapItems(button) {
+        if (!mapPayload || !Array.isArray(mapPayload.years) || mapPayload.years.length === 0) {
+            return [];
         }
 
-        if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
+        const years = mapPayload.years;
+        if (currentMapView === 'compare') {
+            const latestYear = years[years.length - 1];
+            const compareYear = Number(selectedCompareYear || latestYear);
+            return [latestYear, compareYear].map(year => ({
+                year,
+                values: (mapPayload.valuesByYear && mapPayload.valuesByYear[String(year)]) || {}
+            }));
         }
-    }
 
-    function getCurrentFullScreenElement() {
-        return document.fullscreenElement || document.webkitFullscreenElement || null;
-    }
-
-    function toggleMapFullScreen(button) {
         const card = button ? button.closest('.bq-map-card') : null;
-        const compareGrid = el('bq-map-compare-grid');
-        const target = currentMapView === 'compare' ? compareGrid : card;
+        if (!card) {
+            return [];
+        }
 
-        if (!target) {
+        const yearNode = card.querySelector('.bq-map-year');
+        const year = Number((yearNode && yearNode.textContent || '').trim());
+        if (!Number.isFinite(year)) {
+            return [];
+        }
+
+        return [{
+            year,
+            values: (mapPayload.valuesByYear && mapPayload.valuesByYear[String(year)]) || {}
+        }];
+    }
+
+    function buildMapPopupHtml(params) {
+        const geoDataJson = escapeScriptText(JSON.stringify(params.geoData));
+        const mapsJson = escapeScriptText(JSON.stringify(params.maps));
+        const scaleJson = escapeScriptText(JSON.stringify(params.scale));
+        const selectedCodeJson = escapeScriptText(JSON.stringify(params.selectedCode));
+        const indicatorTitleJson = escapeScriptText(JSON.stringify(params.title));
+        const preferFullscreenJson = JSON.stringify(!!params.preferFullscreen);
+
+        return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapas departamentales</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #f0f0f0; color: #333; }
+.popup-wrap { min-height: 100dvh; padding: 12px; box-sizing: border-box; }
+.popup-head { align-items: center; display: flex; justify-content: space-between; margin: 0 0 10px; }
+.popup-title { font-size: 18px; font-weight: 700; margin: 0; }
+.popup-fs-btn { background: #16a6a8; border: none; border-radius: 8px; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; padding: 8px 12px; }
+.popup-grid { display: grid; gap: 12px; grid-template-columns: repeat(${params.maps.length > 1 ? 2 : 1}, minmax(0, 1fr)); }
+.popup-card { background: #fff; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
+.popup-year { background: #f6f6f6; font-weight: 700; padding: 8px 10px; }
+.popup-map { height: calc(100dvh - 120px); min-height: 420px; }
+@media (max-width: 1100px), (orientation: portrait) {
+  .popup-grid { grid-template-columns: 1fr; }
+  .popup-map { height: calc(100dvh - 150px); min-height: 380px; }
+}
+</style>
+</head>
+<body>
+  <div class="popup-wrap">
+    <div class="popup-head">
+      <h1 class="popup-title">${'${indicatorTitle}'}</h1>
+      <button class="popup-fs-btn" id="popup-fs-btn" type="button">Pantalla completa</button>
+    </div>
+    <div class="popup-grid" id="popup-grid"></div>
+  </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""><\/script>
+<script>
+const geoData = ${geoDataJson};
+const mapItems = ${mapsJson};
+const scale = ${scaleJson};
+const selectedCode = ${selectedCodeJson};
+const indicatorTitle = ${indicatorTitleJson};
+const preferFullscreen = ${preferFullscreenJson};
+document.querySelector('.popup-title').textContent = indicatorTitle || 'Mapas departamentales';
+
+function requestFullscreenForPopup() {
+  const target = document.documentElement;
+  if (target.requestFullscreen) {
+    target.requestFullscreen().catch(() => {});
+    return;
+  }
+  if (target.webkitRequestFullscreen) {
+    target.webkitRequestFullscreen();
+  }
+}
+
+const fsBtn = document.getElementById('popup-fs-btn');
+if (fsBtn) {
+  fsBtn.addEventListener('click', requestFullscreenForPopup);
+}
+
+if (preferFullscreen) {
+  setTimeout(requestFullscreenForPopup, 80);
+}
+
+function normalizeDeptCode(code) {
+  const numeric = String(code || '').replace(/\\D+/g, '');
+  return numeric.padStart(2, '0');
+}
+
+function mapColor(value, min, max) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '#d8d8d8';
+  if (min === null || min === undefined || max === null || max === undefined || min === max) return '#f8961e';
+  const ratio = Math.max(0, Math.min(1, (Number(value) - min) / (max - min)));
+  if (ratio < 0.25) return '#fff5bf';
+  if (ratio < 0.5) return '#ffd166';
+  if (ratio < 0.75) return '#f8961e';
+  return '#e85d04';
+}
+
+function formatMapPercent(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'N/D';
+  return Number(value).toFixed(2).replace('.', ',') + ' %';
+}
+
+const grid = document.getElementById('popup-grid');
+const maps = [];
+
+mapItems.forEach(item => {
+  const card = document.createElement('div');
+  card.className = 'popup-card';
+  card.innerHTML = '<div class="popup-year">' + item.year + '</div><div class="popup-map" id="popup-map-' + item.year + '"></div>';
+  grid.appendChild(card);
+
+  const map = L.map('popup-map-' + item.year, {
+    zoomControl: true,
+    attributionControl: false,
+    dragging: true,
+    scrollWheelZoom: true
+  });
+
+  const layer = L.geoJSON(geoData, {
+    style: feature => {
+      const depCode = normalizeDeptCode(feature.properties.DPTO_CCDGO);
+      const value = item.values[depCode];
+      const selected = depCode === selectedCode;
+      return {
+        color: selected ? '#0d6e6f' : '#ffffff',
+        weight: selected ? 2.8 : 1,
+        fillColor: mapColor(value, scale.min, scale.max),
+        fillOpacity: selected ? 0.92 : 0.82
+      };
+    },
+    onEachFeature: (feature, layerItem) => {
+      const depCode = normalizeDeptCode(feature.properties.DPTO_CCDGO);
+      const depName = feature.properties.DPTO_CNMBR || feature.properties.name || depCode;
+      const value = item.values[depCode];
+      const highlightLabel = depCode === selectedCode ? ' (Seleccionado)' : '';
+      layerItem.bindTooltip(depName + highlightLabel + '<br>' + formatMapPercent(value));
+    }
+  }).addTo(map);
+
+  const bounds = layer.getBounds();
+  if (bounds.isValid()) {
+    map.fitBounds(bounds, { padding: [18, 18] });
+  }
+
+  maps.push(map);
+});
+
+window.addEventListener('resize', () => {
+  maps.forEach(map => {
+    map.invalidateSize();
+  });
+});
+</script>
+</body>
+</html>`;
+    }
+
+    async function openMapsInNewWindow(button, options) {
+        const opts = options || {};
+        if (!mapPayload) {
             return;
         }
 
-        const currentFsElement = getCurrentFullScreenElement();
-        if (currentFsElement === target) {
-            exitFullScreen();
+        const mapItems = getPopupMapItems(button);
+        if (!mapItems.length) {
             return;
         }
 
-        requestFullScreen(target);
+        const width = (window.screen && window.screen.availWidth) ? window.screen.availWidth : 1400;
+        const height = (window.screen && window.screen.availHeight) ? window.screen.availHeight : 900;
+        const features = opts.forceFullWindow
+            ? `left=0,top=0,width=${width},height=${height},resizable=yes,scrollbars=yes`
+            : 'width=1400,height=900,resizable=yes,scrollbars=yes';
+
+        const popup = window.open('', '_blank', features);
+        if (!popup) {
+            showError('El navegador bloqueo la nueva ventana. Habilita popups para ver los mapas ampliados.');
+            return;
+        }
+
+        try {
+            popup.opener = null;
+        } catch (error) {
+            // noop
+        }
+
+        if (opts.forceFullWindow) {
+            try {
+                popup.moveTo(0, 0);
+                popup.resizeTo(width, height);
+            } catch (error) {
+                // noop
+            }
+        }
+
+        const geoData = await loadMapGeoJson();
+        const html = buildMapPopupHtml({
+            geoData,
+            maps: mapItems,
+            scale: getMapScale(),
+            selectedCode: normalizeDeptCode((mapPayload.meta && mapPayload.meta.selectedCode) || ''),
+            title: mapPayload.title || activeIndicator || 'Mapas departamentales',
+            preferFullscreen: !!opts.forceFullWindow
+        });
+
+        popup.document.open();
+        popup.document.write(html);
+        popup.document.close();
     }
 
     function renderMapCompareSafe() {
@@ -1006,7 +1191,9 @@
                 return;
             }
 
-            toggleMapFullScreen(btn);
+            openMapsInNewWindow(btn, { forceFullWindow: true }).catch(() => {
+                showError('No fue posible abrir la ventana ampliada de mapas.');
+            });
         });
     }
 
