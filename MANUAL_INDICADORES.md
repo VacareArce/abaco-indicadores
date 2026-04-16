@@ -1,101 +1,157 @@
-# Manual para Agregar Nuevos Indicadores al Dashboard
+# Manual Operativo de Indicadores (Looker + BQ)
 
-Este manual documenta el procedimiento completo para agregar un nuevo indicador al Dashboard interactivo de ABACO. 
+Este manual describe como agregar y mantener indicadores en el dashboard de ABACO, incluyendo:
 
-El sistema vincula tableros de Google Looker Studio (construidos sobre BigQuery) a nuestra interfaz. Para que el proceso sea exitoso, debes configurar el diccionario de datos, actualizar la lógica de filtrado según la granularidad de tu indicador, y finalmente crear el botón en el menú.
-
----
-
-## 🔗 Accesos Oficiales del Proyecto
-Para agilizar el proceso de adición de indicadores, conserve estos enlaces:
-* **Tablero Master en Looker Studio (Edición):** [Abrir Looker Studio](https://lookerstudio.google.com/u/0/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/)
-* **Carpeta de Fichas Técnicas (Drive):** [Abrir Google Drive](https://drive.google.com/drive/folders/1ufyIcF38-72favAaVjIb8BvZvyznuy3m)
+- indicadores tradicionales renderizados por `iframe` (Looker Studio),
+- indicadores `_BQ` con visualizacion nativa (grafica, tabla y mapas Leaflet).
 
 ---
 
-## Preparación: Datos Requeridos
+## 1) Archivos clave del flujo
 
-Antes de tocar el código fuente, recopile la siguiente información sobre el nuevo indicador:
-
-1. **ID del Sistema:** Palabra clave sin espacios para identificar el indicador (ej. `pesoIdeal`, `pobrezaExt`).
-2. **ID de Looker Studio:** El código al final de la URL pública de su gráfica, después de `/page/` (ej. `p_jlgbdeha4c`).
-3. **Enlace de Google Drive:** URL pública de la ficha técnica en PDF.
-4. **Nivel de Granularidad (Territorialidad):** Determine si los datos en BigQuery de este indicador están desglosados detalladamente a nivel de **Municipio** o agregados a nivel de **Departamento**.
-5. **ID de la Fuente de Datos (`dsXXX`):** Si esto requiere una conexión nueva a BigQuery en Looker Studio, este le asignará un identificador (ej. `ds025`). Deberá conocer cuál es.
-
-> **⚠️ REQUISITO CRÍTICO EN LOOKER STUDIO (Permitir URL):** 
-> Para que el dashboard web no cargue sus gráficas "en blanco", es **estrictamente obligatorio** habilitar la inyección de la web en su origen de datos:
-> 1. En Looker Studio, vaya al menú superior **Recurso > Gestionar variables (parámetros)**.
-> 2. Busque el nombre del parámetro requerido en su nueva fuente de datos (ej. `pcodigod` o `pcodigom`).
-> 3. Active la casilla de configuración **"Modificar en la URL"**. 
-> Si no hace esto, Looker Studio se protegerá y rechazará cualquier cruce geográfico que le envíe la web.
+- `js/menu_lista_tableros.js`: diccionario principal de indicadores y fichas.
+- `index.html`: menu superior, layout principal y recursos JS/CSS.
+- `api/bq_indicator_map.php`: mapeo de indicadores `_BQ` -> tabla BigQuery y fuente.
+- `api/charts_bq.php`: serie historica y KPI para la grafica `_BQ`.
+- `api/charts_bq_raw.php`: datos crudos para tabla `_BQ`.
+- `api/charts_bq_export.php`: exportacion CSV de datos crudos.
+- `api/charts_bq_map.php`: datos departamentales por año para mapas `_BQ`.
+- `js/charts_bq.js`: logica frontend de vista `_BQ` (grafica/tabla/mapa).
+- `map/ColDepSNVlite.geojson`: geometria de departamentos para Leaflet.
 
 ---
 
-## Paso 1: Registrar el Indicador en el Diccionario
+## 2) Tipos de indicador
 
-El archivo `js/menu_lista_tableros.js` asocia su nuevo "ID del Sistema" con Looker Studio y Google Drive.
+### 2.1 Indicador Looker (sin sufijo `_BQ`)
 
-1. Abra el archivo `js/menu_lista_tableros.js`.
-2. Dentro del bloque de la variable `var tableros = {`, agregue la siguiente estructura:
+Usa el flujo historico por `iframe` y parametros en URL.
+
+Requiere:
+
+1. Registrar el indicador en `js/menu_lista_tableros.js`.
+2. Agregar la opcion en el menu de `index.html`.
+3. Si aplica, ajustar el filtrado geográfico de Looker (parametros `dsXXX`).
+
+### 2.2 Indicador BigQuery nativo (con sufijo `_BQ`)
+
+Usa API PHP + frontend JS propio del proyecto.
+
+Requiere:
+
+1. Registrar el indicador en `js/menu_lista_tableros.js`.
+2. Registrar tabla y metadatos en `api/bq_indicator_map.php`.
+3. Agregar opcion en menu de `index.html`.
+4. Verificar que la tabla de BigQuery contenga columnas esperadas:
+   - `A__o`
+   - `CodigoD`
+   - `Departamento`
+   - `Indicador_filtro`
+   - `Dato_Nacional`
+   - `Dato_Departamento`
+
+---
+
+## 3) Pasos para agregar un indicador nuevo
+
+## Paso A: Registrar en diccionario
+
+Editar `js/menu_lista_tableros.js`:
 
 ```javascript
-"TU_ID_DEL_SISTEMA": { 
-    "tablero": "EL_ID_DE_LOOKER_STUDIO", 
-    "ficha": "EL_ENLACE_DE_GOOGLE_DRIVE"
+"MI_INDICADOR": {
+  "tablero": "p_xxxxxxxx",
+  "ficha": "https://drive.google.com/..."
 }
 ```
 
-**Uso de Comas:** Como regla de JavaScript, todos los elementos del bloque deben separarse por coma `,`. Si este es su último indicador antes del cierre `};`, no escriba coma al final del bloque, pero asegúrese de colocar una al bloque que quedó arriba.
+Si sera nativo BQ, usar convención `_BQ`:
 
----
-
-## Paso 2: Configurar el Filtrado Geográfico (Granularidad)
-
-El sistema inyecta directamente el código geográfico a todas las fuentes de datos (BigQuery) para filtrar la vista actual. Debemos enseñarle al código cómo aplicar el filtro para nuestro nuevo indicador.
-
-1. Abra el archivo `index.html`.
-2. Localice la función `actualizarTablero(codeMunicipio)`.
-3. Verá una larga lista de variables de fuentes de datos (`ds001`, `ds002`, etc.) que están siendo concatenadas en la variable `url2`.
-4. Añada la nueva fuente de Looker Studio (`dsXXX`) escogiendo estrictamente la variable adecuada en base a su nivel de agregación:
-
-* **Para datos en BigQuery a nivel Municipal:**
-Debe cruzar obligatoriamente usando la variable `codeMunicipio` para que el filtro calce. Añada esta línea:
 ```javascript
-+'"ds025.pcodigom":"'+codeMunicipio+'"'+','
+"MI_INDICADOR_BQ": {
+  "tablero": "p_xxxxxxxx",
+  "ficha": "https://drive.google.com/..."
+}
 ```
 
-* **Para datos en BigQuery a nivel Departamental:**
-Si los datos carecen de desglose municipal, inyectar el código de un municipio fallaría devolviendo listas vacías. Debe usar obligatoriamente la variable `codeDep`:
-```javascript
-+'"ds025.pcodigom":"'+codeDep+'"'+','
+## Paso B: Registrar en mapa de API (solo `_BQ`)
+
+Editar `api/bq_indicator_map.php`:
+
+```php
+'MI_INDICADOR_BQ' => [
+    'table' => 'MI_INDICADOR_BQ',
+    'source' => 'Fuente oficial...'
+],
 ```
 
-*(Cambie `ds025` por el código secuencial asignado que corresponda).*
+## Paso C: Boton en menu
 
----
-
-## Paso 3: Agregar el Botón al Menú
-
-Por último, crearemos la opción en la barrar superior para que el usuario pueda visualizar el gráfico en pantalla.
-
-1. En el mismo archivo `index.html`, busque el contenedor superior llamado `<div id="horizontal-menu">`.
-2. Navegue en las categorías existentes (`<li class="dropdown">`) y seleccione en qué lista desplegable encaja su indicador.
-3. Inserte el botón, verificando usar su ID exacto:
+Editar `index.html` en el bloque del menu:
 
 ```html
-<li><a class="submenu-item" onclick="cambiarMapa('TU_ID_DEL_SISTEMA')">Título de mi nuevo Indicador</a></li>
+<li><a class="submenu-item" onclick="cambiarMapa('MI_INDICADOR_BQ')">Mi Indicador</a></li>
 ```
-*(Si desea crear una nueva categoría separadora para el botón, use: `<li><a class="submenu-title" href="#">Nueva Sección</a></li>` justo arriba).*
-
-Guarde todos los cambios (`Ctrl + S`).
 
 ---
 
-## Confirmación y Errores Comunes
+## 4) Comportamiento de vistas `_BQ`
 
-Para revisar que la instalación fue exitosa, actualice `index.html` (`F5`) en el navegador.
+Para indicadores con sufijo `_BQ`, el usuario tiene:
 
-* **Fallo general (pantalla blanca):** Error de sintaxis en el Paso 1 (`js/menu_lista_tableros.js`). Revise si faltó o sobró una coma.
-* **El botón no hace nada:** Discrepancia de texto entre el `onclick` que escribió en el Paso 3 y el diccionario del Paso 1. Las mayúsculas importan.
-* **La gráfica se muestra a nivel nacional en vez de filtrarse:** Con alta seguridad, obvió el Paso 2 o se equivocó de variable (`codeMunicipio` vs `codeDep`). Looker Studio no está recibiendo el código geográfico que esperaba.
+- `Grafica`: serie temporal nacional/departamental.
+- `Tabla`: datos crudos + descarga CSV.
+- `Mapa`: Leaflet por departamentos.
+
+En mapas:
+
+- orden de años: de mas reciente a mas antiguo,
+- paginacion de 4 en 4 en la vista de serie,
+- modo comparacion: ultimo año vs año seleccionado,
+- resaltado suave del departamento seleccionado,
+- boton `Pantalla completa` que abre una ventana ampliada (compatible con entorno `iframe`).
+
+---
+
+## 5) Notas importantes para entorno iframe
+
+- La accion de `Pantalla completa` en mapas abre una ventana nueva grande para evitar restricciones de fullscreen dentro de `iframe`.
+- Si el navegador bloquea popups, se debe permitir ventanas emergentes para el dominio.
+- En modo comparacion, la ventana ampliada abre ambos mapas.
+
+---
+
+## 6) Validacion funcional minima
+
+Despues de agregar o modificar indicadores:
+
+1. Abrir un indicador no `_BQ` y confirmar que el `iframe` carga.
+2. Abrir un indicador `_BQ` y validar:
+   - grafica visible,
+   - tabla con datos,
+   - descarga CSV,
+   - mapas por año,
+   - comparacion de años,
+   - apertura en ventana ampliada desde `Pantalla completa`.
+3. Cambiar departamento y confirmar que se actualizan KPI, serie y mapas.
+
+---
+
+## 7) Errores comunes
+
+- `Indicador invalido`: falta registro en `api/bq_indicator_map.php`.
+- Tabla vacia en `_BQ`: nombre de tabla incorrecto o sin datos para el territorio.
+- Mapa sin geometria: falta `map/ColDepSNVlite.geojson` o ruta incorrecta.
+- Popup bloqueado: el navegador no permite nuevas ventanas.
+- Inconsistencia de clave: `CodigoD` no coincide con formato esperado (`D##`) en API.
+
+---
+
+## 8) Checklist rapido antes de subir cambios
+
+- [ ] Indicador agregado en `js/menu_lista_tableros.js`.
+- [ ] (Si aplica) indicador agregado en `api/bq_indicator_map.php`.
+- [ ] Opcion del menu agregada en `index.html`.
+- [ ] Probada vista `grafica`, `tabla` y `mapa` (solo `_BQ`).
+- [ ] Probada apertura de mapa ampliado con `Pantalla completa`.
+- [ ] Revisada ortografia de textos visibles (años, Año mas reciente, etc.).
