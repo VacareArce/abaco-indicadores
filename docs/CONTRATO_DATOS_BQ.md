@@ -38,14 +38,41 @@ Opcionales:
   "indicator": "T_Verduras_BQ",
   "template": "line_trend",
   "territoryLevel": "departamento",
-  "kpis": {},
-  "series": {},
+  "kpis": {
+    "nacional": 2.93,
+    "departamento": 3.27,
+    "municipio": null
+  },
+  "kpiYear": 2025,
+  "series": {
+    "years": [2021, 2022, 2023, 2024, 2025],
+    "nacional": [],
+    "departamental": []
+  },
   "bars": {},
   "meta": {
     "source": "..."
   }
 }
 ```
+
+Las claves de `kpis` **no llevan el anio en el nombre**. El anio al que corresponden
+se informa aparte, en `kpiYear`. Nombrarlas `nacional_2024` obliga a tocar backend y
+frontend cada vez que entra un corte nuevo, y deja la clave mintiendo si se olvida.
+
+## Regla de anios: nunca un rango literal
+
+Ningun endpoint `_BQ` debe filtrar por un rango de anios escrito a mano
+(`A__o BETWEEN 2021 AND 2024`). El rango sale siempre del dato:
+
+- Para la serie: `WHERE A__o IS NOT NULL`, y el rango se deduce de lo que vuelva.
+- Para el KPI del ultimo corte: usar `MAX(A__o)` **del propio dato**, nunca
+  `CURRENT_DATE()`. La ECV llega con rezago; el anio calendario actual puede no
+  existir todavia en la tabla y el KPI saldria vacio.
+- Para el texto de fuente: anexar el rango calculado (ver `bqSourceWithRange()`
+  en `api/charts_bq.php` y `api/charts_bq_map.php`), no incrustarlo en la cadena.
+
+Asi, cuando se cargue un anio nuevo a BigQuery aparece solo, sin tocar codigo.
 
 ## Reglas de territorialidad
 

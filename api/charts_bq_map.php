@@ -62,6 +62,28 @@ function valueToPercent($value): ?float
     return round(((float) $value) * 100, 2);
 }
 
+/**
+ * Cierra la cita de la fuente con el rango de anios realmente presente en el dato,
+ * para que no quede un rango fijo desactualizado cuando entre un anio nuevo.
+ *
+ * @param int[] $years
+ */
+function bqSourceWithRange(?string $source, array $years): string
+{
+    $base = $source !== null && trim($source) !== ''
+        ? rtrim(trim($source), '.')
+        : 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV)';
+
+    if ($years === []) {
+        return $base . '.';
+    }
+
+    $min = min($years);
+    $max = max($years);
+
+    return $base . ', ' . ($min === $max ? (string) $min : $min . ' - ' . $max) . '.';
+}
+
 function normalizeDeptCode(string $codigoD): string
 {
     $numeric = preg_replace('/\D+/', '', $codigoD) ?? '';
@@ -148,8 +170,10 @@ try {
         ],
         'meta' => [
             'selectedCode' => $selectedCode,
-            'source' => $indicatorMap[$indicator]['source']
-                ?? 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.',
+            'source' => bqSourceWithRange(
+                $indicatorMap[$indicator]['source'] ?? null,
+                $years
+            ),
         ],
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {

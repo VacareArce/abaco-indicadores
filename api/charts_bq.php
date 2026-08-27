@@ -62,6 +62,28 @@ function valueToPercent($value): ?float
     return round(((float) $value) * 100, 2);
 }
 
+/**
+ * Cierra la cita de la fuente con el rango de anios realmente presente en el dato,
+ * para que no quede un rango fijo desactualizado cuando entre un anio nuevo.
+ *
+ * @param int[] $years
+ */
+function bqSourceWithRange(?string $source, array $years): string
+{
+    $base = $source !== null && trim($source) !== ''
+        ? rtrim(trim($source), '.')
+        : 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV)';
+
+    if ($years === []) {
+        return $base . '.';
+    }
+
+    $min = min($years);
+    $max = max($years);
+
+    return $base . ', ' . ($min === $max ? (string) $min : $min . ' - ' . $max) . '.';
+}
+
 try {
     $clientConfig = ['projectId' => $config['projectId']];
     if (($config['credentialsPath'] ?? '') !== '') {
@@ -80,7 +102,7 @@ try {
             AVG(Dato_Departamento) AS departamental
         FROM {$tableRef}
         WHERE CodigoD = @codigoD
-          AND A__o BETWEEN 2021 AND 2024
+          AND A__o IS NOT NULL
         GROUP BY anio
         ORDER BY anio
     ";
@@ -101,32 +123,38 @@ try {
         $departamental[] = valueToPercent($row['departamental']);
     }
 
-    $kpiSql = "
-        SELECT
-            AVG(Dato_Nacional) AS nacional_2024,
-            AVG(Dato_Departamento) AS departamento_2024
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-          AND A__o = 2024
-    ";
-
-    $kpiQuery = $bigQuery->query($kpiSql)->parameters([
-        'codigoD' => $codigoD,
-    ]);
-
-    $kpiResults = $bigQuery->runQuery($kpiQuery);
+    // El anio del KPI sale del propio dato, no del reloj del servidor:
+    // la ECV llega con rezago y CURRENT_DATE() dejaria los KPIs vacios.
+    $latestYear = $years !== [] ? max($years) : null;
 
     $kpiRow = null;
-    foreach ($kpiResults as $row) {
-        $kpiRow = $row;
-        break;
+
+    if ($latestYear !== null) {
+        $kpiSql = "
+            SELECT
+                AVG(Dato_Nacional) AS nacional,
+                AVG(Dato_Departamento) AS departamento
+            FROM {$tableRef}
+            WHERE CodigoD = @codigoD
+              AND CAST(A__o AS INT64) = @latestYear
+        ";
+
+        $kpiQuery = $bigQuery->query($kpiSql)->parameters([
+            'codigoD' => $codigoD,
+            'latestYear' => $latestYear,
+        ]);
+
+        foreach ($bigQuery->runQuery($kpiQuery) as $row) {
+            $kpiRow = $row;
+            break;
+        }
     }
 
     $titleSql = "
         SELECT ANY_VALUE(Indicador_filtro) AS indicador_filtro
         FROM {$tableRef}
         WHERE CodigoD = @codigoD
-          AND A__o BETWEEN 2021 AND 2024
+          AND A__o IS NOT NULL
     ";
 
     $titleQuery = $bigQuery->query($titleSql)->parameters([
@@ -147,10 +175,11 @@ try {
             ? $titleFromData
             : $indicator,
         'kpis' => [
-            'nacional_2024' => valueToPercent($kpiRow['nacional_2024'] ?? null),
-            'departamento_2024' => valueToPercent($kpiRow['departamento_2024'] ?? null),
-            'municipio_2024' => null,
+            'nacional' => valueToPercent($kpiRow['nacional'] ?? null),
+            'departamento' => valueToPercent($kpiRow['departamento'] ?? null),
+            'municipio' => null,
         ],
+        'kpiYear' => $latestYear,
         'series' => [
             'years' => $years,
             'nacional' => $nacional,
@@ -158,8 +187,10 @@ try {
         ],
         'meta' => [
             'codigoD' => $codigoD,
-            'source' => $indicatorMap[$indicator]['source']
-                ?? 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.',
+            'source' => bqSourceWithRange(
+                $indicatorMap[$indicator]['source'] ?? null,
+                $years
+            ),
         ],
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {

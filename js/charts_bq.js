@@ -1096,9 +1096,12 @@ window.addEventListener('resize', () => {
             }
 
             setText('bq-chart-title', payload.title || indicator);
-            setText('bq-kpi-national', formatPercent(payload.kpis.nacional_2024));
-            setText('bq-kpi-department', formatPercent(payload.kpis.departamento_2024));
+            setText('bq-kpi-national', formatPercent(payload.kpis.nacional));
+            setText('bq-kpi-department', formatPercent(payload.kpis.departamento));
             setText('bq-kpi-municipality', 'N/D');
+            document.querySelectorAll('.bq-kpi-year').forEach(function (node) {
+                node.textContent = payload.kpiYear != null ? payload.kpiYear : '';
+            });
             setText('bq-chart-source', payload.meta.source || '');
             setText('bq-chart-region', regionLabel || 'N/D');
 

@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-$sourceAlimentos = 'Departamento Administrativo Nacional de Estadística (DANE). Anexos estadísticos de la Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.';
+// Sin rango de anios: lo anexa bqSourceWithRange() con los anios presentes en el dato.
+$sourceAlimentos = 'Departamento Administrativo Nacional de Estadística (DANE). Anexos estadísticos de la Encuesta Nacional de Calidad de Vida (ECV)';
 
 return [
     'indicators' => [
