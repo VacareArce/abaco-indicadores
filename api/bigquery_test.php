@@ -16,6 +16,8 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 
 if ($config['credentialsPath'] !== '' && !is_file($config['credentialsPath'])) {
@@ -28,15 +30,7 @@ if ($config['credentialsPath'] !== '' && !is_file($config['credentialsPath'])) {
 }
 
 try {
-    $clientConfig = [
-        'projectId' => $config['projectId'],
-    ];
-
-    if ($config['credentialsPath'] !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $config['tableId']);
     // Sin ?year=, usar el anio mas reciente de la tabla en vez de un literal

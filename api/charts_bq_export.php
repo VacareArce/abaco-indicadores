@@ -15,6 +15,8 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 $indicatorConfig = require __DIR__ . '/bq_indicator_map.php';
 $indicatorMap = $indicatorConfig['indicators'];
@@ -138,12 +140,7 @@ function writeCsvRowUtf16($output, array $fields, string $delimiter = ';'): void
 }
 
 try {
-    $clientConfig = ['projectId' => $config['projectId']];
-    if (($config['credentialsPath'] ?? '') !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);

@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 	
 	<!-- Estilos viejos, no se si sirven de algo -->
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
@@ -25,30 +26,62 @@
 </head>
 <body>
     <div id="horizontal-menu">
-        <ul class="navbar">
-  
-            <li class="dropdown">
-                <a href="#" class="dropbtn">Demográficos y Socioeconómicos</a>
+        <!-- Barra solo movil: el CSS la oculta por encima de 768px. -->
+        <div class="menu-barra-movil">
+            <button type="button" id="menu-toggle" class="menu-hamburguesa"
+                    aria-label="Abrir menu de indicadores" aria-expanded="false" aria-controls="menu-navbar">
+                <span></span><span></span><span></span>
+            </button>
+            <span class="menu-indicador-activo" id="menu-indicador-activo"></span>
+        </div>
+        <ul class="navbar" id="menu-navbar">
+
+            <li class="dropdown cat-demografico">
+                <a href="#" class="dropbtn">Demográficos y socioeconómicos</a>
                 <ul class="dropdown-content">
-					<li style="display: none;"><a class="submenu-title" href="#">Variación porcentual de la población</a></li> 	<!-- Titulo-->
+                    <li style="display: none;"><a class="submenu-title" href="#">Variación porcentual de la población</a></li>
                     <li style="display: none;"><a class="submenu-item" onclick="cambiarMapa('variacionPob')">Total</a></li>
-                    <li style="display: none;"><a class="submenu-item" href="#">Cabecera municipal</a></li>
-                    <li style="display: none;"><a class="submenu-item" href="#">Centros poblados y rural disperso</a></li>
-                    <li><a class="submenu-title" href="#">Proyección de población &#60; de 18 años</a></li> <!-- Titulo-->
+                    <li><a class="submenu-title" href="#">Población</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('proyeccion')">Total</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('proyeccionCM')">Cabecera municipal</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('proyeccionCPyRD')">Centros poblados y rural disperso</a></li>
-					<li style=""><a class="submenu-title" href="#">Socioeconómicos</a></li> 	<!-- Titulo-->
-                    <li><a class="submenu-item" onclick="cambiarMapa('pm')">Indice de Pobreza Monetaria</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('pme')">Indice de Pobreza Monetaria Extrema</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('ipm')">Indice de Pobreza Multidimensional</a></li>
+                    <li><a class="submenu-title" href="#">Socioeconómicos</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('pm')">Índice de Pobreza Monetaria</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('pme')">Índice de Pobreza Monetaria Extrema</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('ipm')">Índice de Pobreza Multidimensional</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('gini')">Coeficiente de Gini</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('desempleo')">Tasa de desocupación</a></li>
-                    
-					<li><a class="submenu-title" href="#">Perdidas y desperdicios</a></li> <!-- Titulo-->
-                    <li><a class="submenu-item" onclick="cambiarMapa('PDA')">Perdidas y desperdicios</a></li>
-                    
-                    <li><a class="submenu-title" href="#">Alimentos que botan los hogares</a></li> <!-- Titulo-->
+                    <li><a class="submenu-item" onclick="cambiarMapa('Empleo_Agro_BQ')">Población empleada por el sector agropecuario</a></li>
+                </ul>
+            </li>
+            <li class="dropdown cat-agua">
+                <a href="#" class="dropbtn">Agua y saneamiento</a>
+                <ul class="dropdown-content">
+                    <li><a class="submenu-title" href="#">Cobertura</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('acueducto')">Acueducto</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('alcantarillado')">Alcantarillado</a></li>
+                    <li><a class="submenu-title" href="#">Uso</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('IPUF')">Desperdicio (IPUF)</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('IPUF_VOL')">IPUF Volumen</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('PINWASHM5')">Necesidad (PIN Wash)</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('IRCA')">Calidad del agua (IRCA)</a></li>
+                </ul>
+            </li>
+            <li class="dropdown cat-alimentario">
+                <a href="#" class="dropbtn">Sistemas alimentarios</a>
+                <ul class="dropdown-content">
+                    <li><a class="submenu-title" href="#">Uso del suelo</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Frontera_Agricola_BQ')">Frontera agrícola</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Bosque_Natural_BQ')">Proporción de la superficie cubierta por bosque natural</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Cambio_Bosque_BQ')">Cambio en la superficie cubierta por bosque natural</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Tasa_Deforestacion_BQ')">Tasa de deforestación</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Erosion_Suelos_BQ')">Proporción del área de suelos degradados por erosión</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Desertificacion_BQ')">Proporción del área de suelos degradados por desertificación</a></li>
+                    <li><a class="submenu-title" href="#">Producción</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Agro_Familiar_BQ')">Áreas que probablemente presentan agricultura familiar</a></li>
+                    <li><a class="submenu-title" href="#">Pérdidas y desperdicios</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('PDA')">Pérdidas y desperdicios</a></li>
+                    <li><a class="submenu-title" href="#">Alimentos que botan los hogares</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('T_Verduras_BQ')">Verduras</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('T_Legumbres_BQ')">Legumbres</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('T_Cereales_BQ')">Cereales</a></li>
@@ -57,8 +90,7 @@
                     <li><a class="submenu-item" onclick="cambiarMapa('T_Productos_carnicos_BQ')">Productos cárnicos</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('T_Raices_tuberculos_y_platanos_BQ')">Raíces, tubérculos y plátanos</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('T_Huevos_BQ')">Huevos</a></li>
-                    
-                    <li><a class="submenu-title" href="#">Razones por las que se botan alimentos</a></li> <!-- Titulo-->
+                    <li><a class="submenu-title" href="#">Razones por las que se botan alimentos</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Compra_mas_BQ')">Compra en exceso</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Prepara_mas_BQ')">Preparación en exceso</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Humedad_temperatura_BQ')">Humedad o clima extremo</a></li>
@@ -68,68 +100,48 @@
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Exceso_tiempo_BQ')">Daño por exceso de tiempo</a></li>
                 </ul>
             </li>
-            <li class="dropdown">
-                <a href="#" class="dropbtn">Indicadores Nutricionales</a>
+            <li class="dropdown cat-nutricional">
+                <a href="#" class="dropbtn">Indicadores nutricionales</a>
                 <ul class="dropdown-content">
-                    <li><a class="submenu-title" href="#">Seguridad alimentaria</a></li> <!-- Titulo-->
-					<li><a class="submenu-item" onclick="cambiarMapa('InsAlimentariaMoG')">Inseguridad Alimentaria Moderada o Grave - DANE</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('InsAlimentariaM')">Inseguridad Alimentaria Grave - DANE</a></li>
-                    <li><a style="display: none;" class="submenu-item" onclick="cambiarMapa('InsAlimentaria')">Inseguridad Alimentaria - INS</a></li>
-
-					<li><a class="submenu-title" href="#">PIN</a></li> <!-- Titulo-->
-					<li><a class="submenu-item" onclick="cambiarMapa('PINM5')">Menores de 5 años</a></li>
-					
-					<li><a class="submenu-title" href="#">Malnutrición</a></li> <!-- Titulo-->
+                    <li><a class="submenu-title" href="#">Seguridad alimentaria</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('InsAlimentariaMoG')">Inseguridad Alimentaria Moderada o Grave - DANE</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('InsAlimentariaM')">Inseguridad Alimentaria Grave - DANE</a></li>
+                    <li style="display: none;"><a class="submenu-item" onclick="cambiarMapa('InsAlimentaria')">Inseguridad Alimentaria - INS</a></li>
+                    <li><a class="submenu-title" href="#">PIN</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('PINM5')">Menores de 5 años</a></li>
+                    <li><a class="submenu-title" href="#">Malnutrición</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('retTalla')">Retraso en talla</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('exePeso')">Exceso de peso</a></li>
-                    
-                    <li><a class="submenu-title" href="#">Biológicos</a></li> <!-- Titulo-->
+                    <li><a class="submenu-title" href="#">Biológicos</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('anemia')">Anemia 6 a 59 meses</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('hierro')">Deficiencia de hierro 1 a 4 años</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('vitaminaA')">Deficiencia de vitamina A 1 a 4 años</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('zinc')">Deficiencia de zinc 1 a 4 años</a></li>
                 </ul>
             </li>
-			<li class="dropdown">
-                <a href="#" class="dropbtn">Indicadores en Salud</a>
+            <li class="dropdown cat-salud">
+                <a href="#" class="dropbtn">Indicadores de salud</a>
                 <ul class="dropdown-content">
-                    <li><a class="submenu-title" href="#">Mortalidad</a></li> <!-- Titulo-->
-					
-					<li><a class="submenu-item" onclick="cambiarMapa('mortM1')">En menores de 1 año</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('mortM5')">En menores de 5 años</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('mortDNT')">Asociada a la desnutrición</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('MortIRA')">Asociada a IRA</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('MortEDA')">Asociada a EDA</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('MortMAT')">Materna</a></li>
-					
-					<li><a class="submenu-title" href="#">Nacimeintos</a></li> <!-- Titulo-->
-					<li><a class="submenu-item" onclick="cambiarMapa('TNat')">Tasa de natalidad</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('TNatM14')">Tasa de Fecundidad en Mujeres de 10 a 14 años.</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('TNatM19')">Tasa de Fecundidad en Mujeres de 15 a 19 años.</a></li>
+                    <li><a class="submenu-title" href="#">Mortalidad</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('mortM1')">En menores de 1 año</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('mortM5')">En menores de 5 años</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('mortDNT')">Asociada a la desnutrición</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('MortIRA')">Asociada a IRA</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('MortEDA')">Asociada a EDA</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('MortMAT')">Materna</a></li>
+                    <li><a class="submenu-title" href="#">Nacimientos</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('TNat')">Tasa de natalidad</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('TNatM14')">Tasa de Fecundidad en Mujeres de 10 a 14 años</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('TNatM19')">Tasa de Fecundidad en Mujeres de 15 a 19 años</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('bpNacer')">Bajo peso al nacer</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('ContrelesPreNat')">Controles prenatales</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('NacPCalificado')">Atendidos por personal calificado</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('NEPrimaria')">Nivel educativo Madre Primaria</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('NEScundaria')">Nivel educativo Madre Secundaria</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('NESuperior')">Nivel educativo Madre Superior</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('TGF')">Tasa global de fecundidad</a></li>
-					
-                  
+                    <li><a class="submenu-item" onclick="cambiarMapa('ContrelesPreNat')">Controles prenatales</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('NacPCalificado')">Atendidos por personal calificado</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('NEPrimaria')">Nivel educativo Madre Primaria</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('NEScundaria')">Nivel educativo Madre Secundaria</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('NESuperior')">Nivel educativo Madre Superior</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('TGF')">Tasa global de fecundidad</a></li>
                 </ul>
             </li>
-			<li class="dropdown">
-                <a href="#" class="dropbtn">Agua y saneamiento</a>
-                <ul class="dropdown-content">
-					<li><a class="submenu-item" onclick="cambiarMapa('IPUF')">IPUF</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('IPUF_VOL')">IPUF Volumen</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('PINWASHM5')">PIN Wash</a></li>
-					<li><a class="submenu-item" onclick="cambiarMapa('IRCA')">IRCA</a></li>
-					<li><a class="submenu-title" href="#">Servicios públicos</a></li> <!-- Titulo-->
-                    <li><a class="submenu-item" onclick="cambiarMapa('acueducto')">Acueducto</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('alcantarillado')">Alcantarillado</a></li>
-                </ul>
-            </li>
-
         </ul>
     </div>
 
@@ -335,6 +347,19 @@
 		//document.getElementById("proyeccion").classList.add("active");
 		function cambiarMapa(indicador) {
 				currentIndicator = indicador;
+				// El nombre sale del propio menu: sirve igual para los 65
+				// indicadores, sean de Looker o _BQ.
+				var rotulo = document.getElementById('menu-indicador-activo');
+				if (rotulo) {
+					var texto = '';
+					document.querySelectorAll('#horizontal-menu a.submenu-item').forEach(function (a) {
+						// Comparacion exacta del id: buscar por subcadena
+						// confundiria 'proyeccion' con 'proyeccionCM'.
+						var m = (a.getAttribute('onclick') || '').match(/cambiarMapa\('([^']+)'\)/);
+						if (m && m[1] === indicador) { texto = a.textContent.trim(); }
+					});
+					rotulo.textContent = texto;
+				}
 				if (window.isBQIndicator && window.isBQIndicator(indicador)) {
 					const regionSeleccionada = regionByCode[codeRegion] || "N/D";
 					window.renderBQChart(indicador, codeDep, regionSeleccionada);
@@ -449,7 +474,105 @@
 			
 			console.log(url1pdf);
 		}
+		// En pantallas tactiles no existe :hover, asi que los desplegables eran
+		// practicamente inoperables. En escritorio no cambia nada.
+		// El boton esta oculto por CSS en escritorio, asi que no hace falta
+		// condicionar por tipo de dispositivo: alli nunca se dispara.
+		(function () {
+			var menu = document.getElementById('horizontal-menu');
+			var toggle = document.getElementById('menu-toggle');
+			if (!menu || !toggle) { return; }
+
+			var nav = document.getElementById('menu-navbar');
+
+			function cerrarPanel() {
+				menu.classList.remove('menu-abierto');
+				toggle.classList.remove('abierto');
+				toggle.setAttribute('aria-expanded', 'false');
+				// Sin esto, al reabrir aparece la categoria que quedo desplegada
+				// en vez de la lista limpia de las cinco.
+				menu.querySelectorAll('.dropdown.abierto')
+					.forEach(function (li) { li.classList.remove('abierto'); });
+				if (nav) { nav.scrollTop = 0; }
+			}
+			window.cerrarPanelMenu = cerrarPanel;
+
+			// El listener va en la barra completa: tocar al lado del icono es un
+			// objetivo mucho mas comodo que los 44px del boton.
+			var barra = menu.querySelector('.menu-barra-movil');
+			(barra || toggle).addEventListener('click', function (e) {
+				e.preventDefault();
+				if (menu.classList.contains('menu-abierto')) {
+					cerrarPanel();
+					return;
+				}
+				menu.classList.add('menu-abierto');
+				toggle.classList.add('abierto');
+				toggle.setAttribute('aria-expanded', 'true');
+			});
+
+			// Tocar fuera cierra: si no, el panel queda tapando la grafica.
+			document.addEventListener('click', function (e) {
+				if (menu.classList.contains('menu-abierto') && !menu.contains(e.target)) {
+					cerrarPanel();
+				}
+			});
+
+			document.addEventListener('keydown', function (e) {
+				if (e.key === 'Escape') { cerrarPanel(); }
+			});
+		})();
+
+		// Modo movil: pantalla tactil O ventana angosta. Se evalua en cada clic,
+		// no al cargar: antes se condicionaba solo a 'hover: none', asi que al
+		// angostar la ventana en un equipo con raton el clic nunca se activaba y
+		// el menu quedaba abriendose con el hover.
+		function menuEnModoMovil() {
+			return window.matchMedia('(hover: none)').matches
+				|| window.matchMedia('(max-width: 768px)').matches;
+		}
+
+		document.querySelectorAll('#horizontal-menu .dropbtn').forEach(function (btn) {
+			btn.addEventListener('click', function (e) {
+				e.preventDefault();   // el href="#" saltaria al tope
+				if (!menuEnModoMovil()) { return; }
+				// Cada categoria es independiente: NO se cierran las demas.
+				//
+				// Cerrarlas hacia que, al abrir una de abajo, desapareciera el
+				// contenido de la de arriba (hasta 1.300 px con Sistemas
+				// alimentarios) y todo subiera de golpe: el boton se iba de
+				// debajo del dedo justo al presionarlo, y el siguiente toque
+				// caia sobre otro elemento. Asi, lo que esta por encima nunca
+				// cambia y el boton pulsado no se mueve.
+				btn.closest('.dropdown').classList.toggle('abierto');
+			});
+		});
+
+		// Al elegir un indicador se cierra el menu, si no tapa la grafica.
+		document.querySelectorAll('#horizontal-menu .submenu-item').forEach(function (item) {
+			item.addEventListener('click', function () {
+				document.querySelectorAll('#horizontal-menu .dropdown.abierto')
+					.forEach(function (otro) { otro.classList.remove('abierto'); });
+				if (window.cerrarPanelMenu) { window.cerrarPanelMenu(); }
+			});
+		});
+
+		// Al volver a escritorio, soltar los acordeones: si no, quedarian
+		// pegados abiertos porque alli manda el hover.
+		window.addEventListener('resize', function () {
+			if (!menuEnModoMovil()) {
+				document.querySelectorAll('#horizontal-menu .dropdown.abierto')
+					.forEach(function (li) { li.classList.remove('abierto'); });
+			}
+		});
+
 		function redirigirFicha(){
+			// Los indicadores nuevos aun no tienen ficha tecnica: sin esta guarda
+			// se abriria una pestana en blanco sin explicar por que.
+			if (!urlFicha) {
+				alert('Ficha tecnica no disponible para este indicador.');
+				return;
+			}
 			window.open(urlFicha, '_blank');
 		}
 		function redirigirImprimir() {

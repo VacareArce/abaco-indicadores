@@ -16,6 +16,8 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 $indicatorConfig = require __DIR__ . '/bq_indicator_map.php';
 $indicatorMap = $indicatorConfig['indicators'];
@@ -51,15 +53,21 @@ if (($config['credentialsPath'] ?? '') !== '' && !is_file($config['credentialsPa
 }
 
 /**
+ * Lleva el valor guardado a su unidad de presentacion.
+ *
+ * La escala se declara por indicador en bq_indicator_map.php: unas tablas
+ * guardan fraccion (0.0231 -> 2.31 %) y otras ya guardan el valor final
+ * (51.74 %, 1496026 ha). 'Tipo_dato' no alcanza para distinguirlas.
+ *
  * @param mixed $value
  */
-function valueToPercent($value): ?float
+function valueToPercent($value, float $escala = 100.0): ?float
 {
     if ($value === null) {
         return null;
     }
 
-    return round(((float) $value) * 100, 2);
+    return round(((float) $value) * $escala, 2);
 }
 
 /**
@@ -84,115 +92,109 @@ function bqSourceWithRange(?string $source, array $years): string
     return $base . ', ' . ($min === $max ? (string) $min : $min . ' - ' . $max) . '.';
 }
 
-try {
-    $clientConfig = ['projectId' => $config['projectId']];
-    if (($config['credentialsPath'] ?? '') !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
+/**
+ * Anexa las aclaraciones del indicador (anios dobles, area en litigio) despues
+ * de la cita de la fuente. Solo las llevan los indicadores que las declaran en
+ * bq_indicator_map.php.
+ *
+ * @param string[] $notas
+ */
+function bqConNotas(string $fuente, array $notas): string
+{
+    $limpias = array_filter(array_map('trim', $notas));
 
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    return $limpias === [] ? $fuente : $fuente . ' ' . implode(' ', $limpias);
+}
+
+try {
+    $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
+    $escala = (float) ($indicatorMap[$indicator]['escala'] ?? 100);
+    $unidad = (string) ($indicatorMap[$indicator]['unidad'] ?? '%');
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
 
-    $seriesSql = "
-        SELECT
-            CAST(A__o AS INT64) AS anio,
-            AVG(Dato_Nacional) AS nacional,
-            AVG(Dato_Departamento) AS departamental
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-          AND A__o IS NOT NULL
-        GROUP BY anio
-        ORDER BY anio
-    ";
+    $payload = bqCacheServe(
+        bqCacheDir($config),
+        $indicator,
+        "chart:{$indicator}:{$codigoD}",
+        bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
+        static function () use ($bigQuery, $tableRef, $codigoD, $indicator, $indicatorMap, $escala, $unidad): array {
+            // Una sola consulta cubre serie, KPI y titulo. El KPI es la fila del ultimo
+            // anio de la serie -- mismo AVG sobre el mismo filtro -- y el titulo es el
+            // mismo ANY_VALUE que antes se pedia aparte.
+            $seriesSql = "
+                SELECT
+                    CAST(A__o AS INT64) AS anio,
+                    AVG(Dato_Nacional) AS nacional,
+                    AVG(Dato_Departamento) AS departamental,
+                    ANY_VALUE(Indicador_filtro) AS indicador_filtro
+                FROM {$tableRef}
+                WHERE CodigoD = @codigoD
+                  AND A__o IS NOT NULL
+                GROUP BY anio
+                ORDER BY anio
+            ";
 
-    $seriesQuery = $bigQuery->query($seriesSql)->parameters([
-        'codigoD' => $codigoD,
-    ]);
+            $seriesQuery = $bigQuery->query($seriesSql)->parameters([
+                'codigoD' => $codigoD,
+            ]);
 
-    $seriesResults = $bigQuery->runQuery($seriesQuery);
+            $seriesResults = $bigQuery->runQuery($seriesQuery);
 
-    $years = [];
-    $nacional = [];
-    $departamental = [];
+            $years = [];
+            $nacional = [];
+            $departamental = [];
+            $titleFromData = null;
 
-    foreach ($seriesResults as $row) {
-        $years[] = (int) $row['anio'];
-        $nacional[] = valueToPercent($row['nacional']);
-        $departamental[] = valueToPercent($row['departamental']);
-    }
+            foreach ($seriesResults as $row) {
+                $years[] = (int) $row['anio'];
+                $nacional[] = valueToPercent($row['nacional'], $escala);
+                $departamental[] = valueToPercent($row['departamental'], $escala);
 
-    // El anio del KPI sale del propio dato, no del reloj del servidor:
-    // la ECV llega con rezago y CURRENT_DATE() dejaria los KPIs vacios.
-    $latestYear = $years !== [] ? max($years) : null;
+                if ($titleFromData === null && isset($row['indicador_filtro'])) {
+                    $titleFromData = trim((string) $row['indicador_filtro']);
+                }
+            }
 
-    $kpiRow = null;
+            // El anio del KPI sale del propio dato, no del reloj del servidor:
+            // la ECV llega con rezago y CURRENT_DATE() dejaria los KPIs vacios.
+            $latestYear = $years !== [] ? max($years) : null;
 
-    if ($latestYear !== null) {
-        $kpiSql = "
-            SELECT
-                AVG(Dato_Nacional) AS nacional,
-                AVG(Dato_Departamento) AS departamento
-            FROM {$tableRef}
-            WHERE CodigoD = @codigoD
-              AND CAST(A__o AS INT64) = @latestYear
-        ";
+            $kpiIndex = $latestYear !== null ? array_search($latestYear, $years, true) : false;
+            $kpiNacional = $kpiIndex !== false ? $nacional[$kpiIndex] : null;
+            $kpiDepartamento = $kpiIndex !== false ? $departamental[$kpiIndex] : null;
 
-        $kpiQuery = $bigQuery->query($kpiSql)->parameters([
-            'codigoD' => $codigoD,
-            'latestYear' => $latestYear,
-        ]);
-
-        foreach ($bigQuery->runQuery($kpiQuery) as $row) {
-            $kpiRow = $row;
-            break;
+            return [
+                'ok' => true,
+                'indicator' => $indicator,
+                'title' => $titleFromData !== '' && $titleFromData !== null
+                    ? $titleFromData
+                    : $indicator,
+                'kpis' => [
+                    'nacional' => $kpiNacional,
+                    'departamento' => $kpiDepartamento,
+                    'municipio' => null,
+                ],
+                'kpiYear' => $latestYear,
+                'series' => [
+                    'years' => $years,
+                    'nacional' => $nacional,
+                    'departamental' => $departamental,
+                ],
+                'meta' => [
+                    'codigoD' => $codigoD,
+                    'unidad' => $unidad,
+                    'source' => bqConNotas(
+                        bqSourceWithRange($indicatorMap[$indicator]['source'] ?? null, $years),
+                        $indicatorMap[$indicator]['notas'] ?? []
+                    ),
+                ],
+            ];
         }
-    }
+    );
 
-    $titleSql = "
-        SELECT ANY_VALUE(Indicador_filtro) AS indicador_filtro
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-          AND A__o IS NOT NULL
-    ";
-
-    $titleQuery = $bigQuery->query($titleSql)->parameters([
-        'codigoD' => $codigoD,
-    ]);
-
-    $titleResults = $bigQuery->runQuery($titleQuery);
-    $titleFromData = null;
-    foreach ($titleResults as $row) {
-        $titleFromData = isset($row['indicador_filtro']) ? trim((string) $row['indicador_filtro']) : null;
-        break;
-    }
-
-    echo json_encode([
-        'ok' => true,
-        'indicator' => $indicator,
-        'title' => $titleFromData !== '' && $titleFromData !== null
-            ? $titleFromData
-            : $indicator,
-        'kpis' => [
-            'nacional' => valueToPercent($kpiRow['nacional'] ?? null),
-            'departamento' => valueToPercent($kpiRow['departamento'] ?? null),
-            'municipio' => null,
-        ],
-        'kpiYear' => $latestYear,
-        'series' => [
-            'years' => $years,
-            'nacional' => $nacional,
-            'departamental' => $departamental,
-        ],
-        'meta' => [
-            'codigoD' => $codigoD,
-            'source' => bqSourceWithRange(
-                $indicatorMap[$indicator]['source'] ?? null,
-                $years
-            ),
-        ],
-    ], JSON_UNESCAPED_UNICODE);
+    bqSendJson($payload);
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([

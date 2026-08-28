@@ -16,7 +16,7 @@ function lista_tableros(){
 						      "ficha":"https://drive.google.com/file/d/1iOfatRe71iQnGHLj5pt12oOCVxGH076P/view"
 						    },
 				"acueducto":{ "tablero":"p_yphe8nlm4c", 
-						 "     ficha":"https://drive.google.com/file/d/1InYP7TXk7ZqebB6T4G7SaQg2yI0O1B92/view?usp=drive_link"
+						 "ficha":"https://drive.google.com/file/d/1InYP7TXk7ZqebB6T4G7SaQg2yI0O1B92/view?usp=drive_link"
 							},
 				"alcantarillado": { "tablero":"p_kswaynqm4c", 
 									"ficha":"https://drive.google.com/file/d/1-kXI6-eZL4oi26oypuA9nTJ_gtqSS72V/view?usp=drive_link"
@@ -144,7 +144,19 @@ function lista_tableros(){
 				"RT_Mala_conservacion_BQ":	{"tablero":"p_mm3bg8rg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
 				"RT_Vencimiento_BQ":		{"tablero":"p_i1dygdsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
 				"RT_Falta_refrigeracion_BQ":{"tablero":"p_4oaynfsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
-				"RT_Exceso_tiempo_BQ":		{"tablero":"p_sr705lsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"}
+				"RT_Exceso_tiempo_BQ":		{"tablero":"p_sr705lsg1d", "ficha":"https://drive.google.com/file/d/1j5vqaMqc63txhpRXxlrTLoaE-pj6uQtt/view?usp=drive_link"},
+
+				// Indicadores nuevos (BigQuery nativo). Sin ficha tecnica todavia:
+				// las entrega el Observatorio. 'tablero' va vacio porque la ruta _BQ
+				// no pasa por Looker Studio.
+				"Frontera_Agricola_BQ":		{"tablero":"", "ficha":""},
+				"Bosque_Natural_BQ":		{"tablero":"", "ficha":""},
+				"Cambio_Bosque_BQ":			{"tablero":"", "ficha":""},
+				"Tasa_Deforestacion_BQ":	{"tablero":"", "ficha":""},
+				"Erosion_Suelos_BQ":		{"tablero":"", "ficha":""},
+				"Desertificacion_BQ":		{"tablero":"", "ficha":""},
+				"Agro_Familiar_BQ":			{"tablero":"", "ficha":""},
+				"Empleo_Agro_BQ":			{"tablero":"", "ficha":""}
 			};
 	return tableros;
 } 

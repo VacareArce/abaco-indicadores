@@ -16,6 +16,8 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 $indicatorConfig = require __DIR__ . '/bq_indicator_map.php';
 $indicatorMap = $indicatorConfig['indicators'];
@@ -62,50 +64,56 @@ if (($config['credentialsPath'] ?? '') !== '' && !is_file($config['credentialsPa
 }
 
 try {
-    $clientConfig = ['projectId' => $config['projectId']];
-    if (($config['credentialsPath'] ?? '') !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
     $columnSql = implode(', ', $rawColumns);
 
-    $sql = "
-        SELECT {$columnSql}
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-    ";
+    $payload = bqCacheServe(
+        bqCacheDir($config),
+        $indicator,
+        "raw:{$indicator}:{$codigoD}:{$year}",
+        bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
+        static function () use ($bigQuery, $tableRef, $columnSql, $codigoD, $year, $indicator, $rawColumns): array {
 
-    $params = ['codigoD' => $codigoD];
-    if ($year !== '') {
-        $sql .= ' AND CAST(A__o AS INT64) = @year';
-        $params['year'] = (int) $year;
-    }
+            $sql = "
+                SELECT {$columnSql}
+                FROM {$tableRef}
+                WHERE CodigoD = @codigoD
+            ";
 
-    $sql .= ' ORDER BY A__o DESC LIMIT 10000';
+            $params = ['codigoD' => $codigoD];
+            if ($year !== '') {
+                $sql .= ' AND CAST(A__o AS INT64) = @year';
+                $params['year'] = (int) $year;
+            }
 
-    $query = $bigQuery->query($sql)->parameters($params);
-    $queryResults = $bigQuery->runQuery($query);
+            $sql .= ' ORDER BY A__o DESC LIMIT 10000';
 
-    $rows = [];
-    foreach ($queryResults as $row) {
-        $formatted = [];
-        foreach ($rawColumns as $col) {
-            $formatted[$col] = $row[$col] ?? null;
+            $query = $bigQuery->query($sql)->parameters($params);
+            $queryResults = $bigQuery->runQuery($query);
+
+            $rows = [];
+            foreach ($queryResults as $row) {
+                $formatted = [];
+                foreach ($rawColumns as $col) {
+                    $formatted[$col] = $row[$col] ?? null;
+                }
+                $rows[] = $formatted;
+            }
+
+            return [
+                'ok' => true,
+                'indicator' => $indicator,
+                'columns' => $rawColumns,
+                'rows' => $rows,
+                'total' => count($rows),
+            ];
         }
-        $rows[] = $formatted;
-    }
+    );
 
-    echo json_encode([
-        'ok' => true,
-        'indicator' => $indicator,
-        'columns' => $rawColumns,
-        'rows' => $rows,
-        'total' => count($rows),
-    ], JSON_UNESCAPED_UNICODE);
+    bqSendJson($payload);
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([
