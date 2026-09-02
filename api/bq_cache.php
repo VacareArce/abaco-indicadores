@@ -240,7 +240,7 @@ function bqCacheServe(
  * ahorra el viaje al servidor. Con el ETag, volver a un tablero ya visto se
  * resuelve con un 304 sin cuerpo.
  *
- * No usarlo en la exportacion CSV, que debe seguir siendo no-store.
+ * No usarlo en la exportacion Excel, que debe seguir siendo no-store.
  */
 function bqSendJson(array $payload): void
 {

@@ -94,10 +94,10 @@
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Compra_mas_BQ')">Compra en exceso</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Prepara_mas_BQ')">Preparación en exceso</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Humedad_temperatura_BQ')">Humedad o clima extremo</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Mala_conservacion_BQ')">Daño por mala conservación</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Mala_conservacion_BQ')">Mala conservación</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Vencimiento_BQ')">Fecha de vencimiento</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('RT_Falta_refrigeracion_BQ')">Fallas en refrigeración</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Exceso_tiempo_BQ')">Daño por exceso de tiempo</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('RT_Exceso_tiempo_BQ')">Exceso de tiempo</a></li>
                 </ul>
             </li>
             <li class="dropdown cat-nutricional">
@@ -206,9 +206,26 @@
 						<div class="embed-container" style=""  >
 							<iframe id="tablero" class="iframe-content" frameborder="0" src="https://lookerstudio.google.com/embed/reporting/f2ee0078-5302-4786-aac1-91dde1a603d1/page/p_jlgbdeha4c" allowfullscreen style="display:block;"></iframe>
 							<div id="bq-chart-view" style="display:none;">
-								<div id="bq-chart-loading" class="bq-chart-loading" style="display:none;">
+								<div id="bq-chart-loading" class="bq-chart-loading" role="status" aria-live="polite" style="display:none;">
 									<div class="bq-loading-panel">
-										<div class="bq-loading-spinner"></div>
+										<div class="bq-loading-context">
+											<div class="bq-loading-heading">
+												<div class="bq-loading-spinner" aria-hidden="true"></div>
+												<span>Cargando indicador</span>
+											</div>
+											<h3 id="bq-loading-title">Indicador</h3>
+											<p id="bq-loading-region">Preparando la selección territorial…</p>
+										</div>
+										<div class="bq-loading-kpis" aria-hidden="true">
+											<div class="bq-skeleton-card"><span></span><strong></strong></div>
+											<div class="bq-skeleton-card"><span></span><strong></strong></div>
+											<div class="bq-skeleton-card"><span></span><strong></strong></div>
+										</div>
+										<div class="bq-skeleton-chart" aria-hidden="true">
+											<div class="bq-skeleton-chart-line line-one"></div>
+											<div class="bq-skeleton-chart-line line-two"></div>
+										</div>
+										<p class="bq-loading-detail">Preparando gráfica, tabla y mapas…</p>
 									</div>
 								</div>
 								<h3 id="bq-chart-title" class="bq-chart-title">Indicador</h3>
@@ -247,7 +264,7 @@
 									<div id="bq-raw-table-empty" class="bq-raw-table-empty" style="display:none;">No hay datos crudos para este filtro.</div>
 								</div>
 								<div class="bq-table-actions">
-									<button id="bq-download-csv" class="bq-download-btn" type="button" disabled>Descargar Excel (CSV)</button>
+									<button id="bq-download-excel" class="bq-download-btn" type="button" disabled>Descarga Excel</button>
 								</div>
 								</div>
 								<div id="bq-map-panel" style="display:none;">

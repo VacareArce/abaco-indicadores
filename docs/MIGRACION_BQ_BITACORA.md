@@ -36,7 +36,7 @@ Por cada indicador migrado, agrega una entrada con:
 
 - [ ] Carga de grafica
 - [ ] Carga de tabla cruda
-- [ ] Exportacion CSV
+- [ ] Exportacion Excel
 - [ ] Mapa (si aplica)
 - [ ] Comparacion de años (si aplica)
 - [ ] Cambio de departamento sin error
@@ -122,7 +122,7 @@ seguridad por si la metadata no respondiera.
 
 - [x] Carga de grafica
 - [x] Carga de tabla cruda
-- [x] Exportacion CSV (sin cambios: sigue siendo `no-store`)
+- [x] Exportacion Excel (la respuesta sigue siendo `no-store`)
 - [x] Mapa (4 SVG, 132 departamentos, paginacion correcta)
 - [x] Comparacion de anios
 - [x] Cambio de departamento sin error

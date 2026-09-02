@@ -88,7 +88,7 @@
     }
 
     function setDownloadEnabled(enabled) {
-        const btn = el('bq-download-csv');
+        const btn = el('bq-download-excel');
         if (!btn) return;
         btn.disabled = !enabled;
     }
@@ -1054,11 +1054,32 @@ window.addEventListener('resize', () => {
         setBQSubTab(currentBQSubTab);
     }
 
-    function setLoading(isLoading) {
+    function indicatorDisplayName(indicator) {
+        const items = document.querySelectorAll('#horizontal-menu a.submenu-item');
+        for (const item of items) {
+            const match = (item.getAttribute('onclick') || '').match(/cambiarMapa\('([^']+)'\)/);
+            if (match && match[1] === indicator) {
+                return item.textContent.trim();
+            }
+        }
+
+        return indicator || 'Indicador';
+    }
+
+    function setLoading(isLoading, indicator, regionLabel) {
         const dim = el('bq-screen-dim');
         const loading = el('bq-chart-loading');
+        const chartView = el('bq-chart-view');
+        if (isLoading) {
+            setText('bq-loading-title', indicatorDisplayName(indicator));
+            setText(
+                'bq-loading-region',
+                regionLabel ? `Selección territorial: ${regionLabel}` : 'Preparando la selección territorial…'
+            );
+        }
         if (dim) dim.style.display = isLoading ? 'block' : 'none';
         if (loading) loading.style.display = isLoading ? 'flex' : 'none';
+        if (chartView) chartView.setAttribute('aria-busy', isLoading ? 'true' : 'false');
     }
 
     function hideChartView() {
@@ -1093,26 +1114,28 @@ window.addEventListener('resize', () => {
     // cambio de bosque y la tasa de deforestacion.
     function computeYBounds(values) {
         const limpios = values.filter(v => v !== null && v !== undefined && !Number.isNaN(Number(v))).map(Number);
+        const esPorcentaje = unidadActual === '%';
         if (!limpios.length) {
-            return { min: 0, max: 6, esPorcentajeChico: true };
+            return { min: 0, max: 6, esPorcentajeChico: esPorcentaje };
         }
 
         const maxValue = Math.max(...limpios);
         const minValue = Math.min(...limpios);
 
-        // Solo para porcentajes pequenos conservamos la escala entera y par de antes.
-        const esPorcentajeChico = minValue >= 0 && maxValue <= 100;
+        // Los porcentajes positivos conservan la escala entera y nunca superan
+        // 100 %. El resto de unidades mantiene una escala libre.
+        const esPorcentajeChico = esPorcentaje && minValue >= 0;
         if (esPorcentajeChico) {
             const rounded = Math.ceil(maxValue * 1.25);
             const evenMax = rounded % 2 === 0 ? rounded : rounded + 1;
-            return { min: 0, max: Math.max(6, evenMax), esPorcentajeChico: true };
+            return { min: 0, max: Math.min(100, Math.max(6, evenMax)), esPorcentajeChico: true };
         }
 
         const span = (maxValue - minValue) || Math.abs(maxValue) || 1;
         const pad = span * 0.15;
         return {
             min: minValue < 0 ? minValue - pad : 0,
-            max: maxValue + pad,
+            max: esPorcentaje ? Math.min(100, maxValue + pad) : maxValue + pad,
             esPorcentajeChico: false
         };
     }
@@ -1171,11 +1194,19 @@ window.addEventListener('resize', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                // Al acercarse a cualquiera de las dos series, el tooltip se
+                // resuelve por año y muestra juntos Nacional y Departamental.
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
+                        mode: 'index',
+                        intersect: false,
                         callbacks: {
                             label: function (context) {
                                 return `${context.dataset.label}: ${formatPercent(context.parsed.y)}`;
@@ -1267,7 +1298,7 @@ window.addEventListener('resize', () => {
 
         activeIndicator = indicator;
         showChartView();
-        setLoading(true);
+        setLoading(true, indicator, regionLabel);
         showError('');
         clearRawTable('Cargando datos crudos...');
         clearMapPanel('Cargando mapas...');
@@ -1283,7 +1314,6 @@ window.addEventListener('resize', () => {
             ]);
 
             if (activeIndicator !== indicator) {
-                setLoading(false);
                 return;
             }
 
@@ -1316,6 +1346,9 @@ window.addEventListener('resize', () => {
             setBQSubTab(currentBQSubTab);
             setLoading(false);
         } catch (error) {
+            if (activeIndicator !== indicator) {
+                return;
+            }
             setLoading(false);
             showError(error.message || 'No fue posible cargar la grafica.');
             setText('bq-chart-title', 'Sin datos disponibles');
@@ -1332,12 +1365,17 @@ window.addEventListener('resize', () => {
         }
     }
 
-    const downloadBtn = el('bq-download-csv');
+    const downloadBtn = el('bq-download-excel');
     if (downloadBtn) {
         downloadBtn.addEventListener('click', function () {
             if (!downloadContext) return;
             const params = new URLSearchParams(downloadContext);
-            window.open(`${exportApiEndpoint}?${params.toString()}`, '_blank');
+            const link = document.createElement('a');
+            link.href = `${exportApiEndpoint}?${params.toString()}`;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
         });
     }
 
