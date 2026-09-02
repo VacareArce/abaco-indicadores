@@ -598,6 +598,7 @@
 
 .bq-legend-item.national { color: #e5167a; }
 .bq-legend-item.department { color: #16a6a8; }
+.bq-legend-item.municipality { color: #f08600; }
 
 .bq-chart-footer {
     color: #565656;

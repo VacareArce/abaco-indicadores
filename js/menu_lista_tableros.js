@@ -3,14 +3,14 @@ function lista_tableros(){
 				"gini": 	{ "tablero":"p_c5eh27ha4c", 
 							  "ficha":"https://drive.google.com/file/d/1HAeQd1BeUBcXbxBbFmxjCkqLMQj0duSZ/view?usp=drive_link"
 							},
-				"pm":		{ "tablero":"p_g15xtwha4c", 
+				"Pobreza_Monetaria_Mun_BQ": { "tablero":"",
 							   "ficha":"https://drive.google.com/file/d/1hsSN6FPEE9i0nfVC3NtICtJJvVNs161V/view?usp=drive_link"
 							},	
 				"pme":  	{ "tablero":"p_a0l14xha4c", 
 						       "ficha":"https://drive.google.com/file/d/1i3SoMmMjG_aIsqWv6Mu8p9FtqpDMradq/view?usp=drive_link"
 							},     
-				"ipm":  	{ "tablero":"p_lcuknoha4c", 
-						       "ficha":"https://drive.google.com/file/d/1hsFDyTKx1S19z2i3LJrqeNI3-j56BQoN/view?usp=drive_link"
+				"IPMultidimensional_Mun_BQ": { "tablero":"",
+							       "ficha":"https://drive.google.com/file/d/1hsFDyTKx1S19z2i3LJrqeNI3-j56BQoN/view?usp=drive_link"
 							},
 				"desempleo":{ "tablero":"p_iry9huom4c", 
 						      "ficha":"https://drive.google.com/file/d/1iOfatRe71iQnGHLj5pt12oOCVxGH076P/view"
@@ -63,9 +63,7 @@ function lista_tableros(){
 				"InsAlimentaria":{ "tablero":"p_xwuwxy665c", 
 									"ficha":"https://drive.google.com/file/d/1o0TVWZiHtkYzb-lDPZFexnp34YEf5Q92/view"
 								},
-				"InsAlimentariaMoG":{ "tablero":"p_82tl7kcgdd", 
-									  "ficha":"https://drive.google.com/file/d/1Gy9_U5Z2ZnUkbJMKgAPTIUwsaew7iwK0/view?usp=drive_link"
-									},
+				"Ins_Alimentaria_Mun_22_BQ": {"tablero":"", "ficha":"https://drive.google.com/file/d/1Gy9_U5Z2ZnUkbJMKgAPTIUwsaew7iwK0/view?usp=drive_link"},
 				"InsAlimentariaM":	{ "tablero":"p_oe9ziedgdd", 
 									  "ficha":"https://drive.google.com/file/d/1GtOjyk4M7q6nXquvxnMHjS9sBtpkxVqu/view?usp=drive_link"
 								    },

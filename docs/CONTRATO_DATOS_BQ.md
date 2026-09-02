@@ -15,8 +15,12 @@ Campos opcionales (segun indicador):
 
 - `CodigoM` (municipio, formato `M#####`)
 - `Municipio`
+- `Dato_Municipio`
 - `Tipo_dato`
 - `Tipo_medida`
+
+Las tablas pueden usar `Tipo_Dato` y `Tipo_de_Medida`; el mapeo del indicador
+debe exponerlas al contrato canonico como `Tipo_dato` y `Tipo_medida`.
 
 ## Parametros de API
 
@@ -47,7 +51,8 @@ Opcionales:
   "series": {
     "years": [2021, 2022, 2023, 2024, 2025],
     "nacional": [],
-    "departamental": []
+    "departamental": [],
+    "municipal": []
   },
   "bars": {},
   "meta": {
@@ -79,6 +84,11 @@ Asi, cuando se cargue un anio nuevo a BigQuery aparece solo, sin tocar codigo.
 - Si un indicador soporta municipio, debe informarse `territoryLevel: "municipio"`.
 - Si no soporta municipio, debe informarse `territoryLevel: "departamento"`.
 - Si llega `codigoM` y no aplica para el indicador, ignorar y usar `codigoD`.
+- Un indicador municipal requiere `codigoM`, valida que pertenezca al `codigoD`
+  recibido y conserva los faltantes de la serie municipal como `null`.
+- `kpiYear` es comun a las tres tarjetas y corresponde al ultimo anio presente.
+  Si el municipio no tiene dato en ese corte, `kpis.municipio` es `null`; no se
+  reemplaza con un dato de un anio anterior.
 
 ## Validaciones recomendadas
 
@@ -92,6 +102,10 @@ Asi, cuando se cargue un anio nuevo a BigQuery aparece solo, sin tocar codigo.
 - Incluir ambos codigos (`CodigoD`, `CodigoM`) en tabla cruda cuando existan.
 - Definir vista SQL canonica por indicador municipal (ej. `vw_indicador_municipal_actual`).
 - Garantizar unicidad por `A__o + CodigoM` en capa de consumo.
+- Las respuestas de grafica pueden agregar `series.municipal`; los indicadores
+  departamentales la devuelven vacia para conservar un contrato uniforme.
+- La tabla cruda y el Excel de un indicador municipal se filtran por `codigoM`.
+  Los mapas permanecen agregados por departamento y no reciben ese filtro.
 
 ## Versionado sugerido
 

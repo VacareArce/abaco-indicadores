@@ -176,9 +176,8 @@ try {
             return [
                 'ok' => true,
                 'indicator' => $indicator,
-                'title' => $titleFromData !== '' && $titleFromData !== null
-                    ? $titleFromData
-                    : $indicator,
+                'title' => $indicatorMap[$indicator]['title']
+                    ?? ($titleFromData !== '' && $titleFromData !== null ? $titleFromData : $indicator),
                 'years' => $years,
                 'valuesByYear' => $valuesByYear,
                 'scale' => [

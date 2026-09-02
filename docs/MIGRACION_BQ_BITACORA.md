@@ -53,6 +53,110 @@ Por cada indicador migrado, agrega una entrada con:
 
 ## Registro
 
+### [2026-09-02] Índice de Pobreza Monetaria
+
+- `id`: `Pobreza_Monetaria_Mun_BQ`
+- `nombre`: Índice de Pobreza Monetaria
+- `origen`: `iframe`
+- `destino`: `_BQ`
+- `plantilla`: `line_trend`
+- `territoryLevel`: `municipio`
+
+Cambios aplicados:
+
+- datos: nueva tabla municipal con 15.708 filas, 1.122 municipios y cortes
+  nacionales/departamentales de 2012 a 2025.
+- menu: el indicador legado abre el tablero nativo y conserva su ficha tecnica.
+- backend: alias para `Tipo_Dato`/`Tipo_de_Medida`, filtro por `codigoM`, serie
+  municipal y mapas departamentales.
+- frontend: tercera serie naranja y tendencia punteada entre los cortes
+  municipales de 2022 y 2024.
+
+QA funcional:
+
+- [x] Carga de grafica y tres series
+- [x] Tabla cruda y Excel filtrados al municipio
+- [x] Mapas departamentales 2012-2025
+- [x] KPI municipal N/D en 2025
+- [x] Cambio de departamento y municipio
+- [x] Regresion de indicadores `_BQ`
+
+Resultado:
+
+- estado: `completado`
+- observaciones: se conservaron 125 nulos departamentales de la fuente y los
+  nulos municipales de Mapiripana para 2022 y 2024.
+- deuda tecnica: no se incorpora cartografia municipal.
+
+### [2026-09-02] Índice de Pobreza Multidimensional
+
+- `id`: `IPMultidimensional_Mun_BQ`
+- `nombre`: Índice de Pobreza Multidimensional
+- `origen`: `iframe`
+- `destino`: `_BQ`
+- `plantilla`: `line_trend`
+- `territoryLevel`: `municipio`
+
+Cambios aplicados:
+
+- datos: nueva tabla municipal con 8.976 filas, 1.122 municipios y cortes
+  nacionales/departamentales de 2018 a 2025.
+- menu: el indicador legado abre el tablero nativo y conserva su ficha tecnica.
+- backend: alias para `Tipo_Dato`/`Tipo_de_Medida`, filtro por `codigoM`, serie
+  municipal y mapas departamentales.
+- frontend: tercera serie naranja; los cortes municipales 2022 y 2024 se unen
+  con una linea punteada de tendencia.
+
+QA funcional:
+
+- [x] Carga de grafica y tres series
+- [x] Tabla cruda y Excel filtrados al municipio
+- [x] Mapas departamentales 2018-2025
+- [x] KPI municipal N/D en 2025
+- [x] Cambio de departamento y municipio
+- [x] Regresion de indicadores `_BQ`
+
+Resultado:
+
+- estado: `completado`
+- observaciones: Mapiripana conserva el dato municipal nulo de 2024; no se
+  imputan los cortes municipales ausentes.
+- deuda tecnica: no se incorpora cartografia municipal.
+
+### [2026-09-02] Inseguridad alimentaria moderada o grave
+
+- `id`: `Ins_Alimentaria_Mun_22_BQ`
+- `nombre`: Inseguridad alimentaria moderada o grave
+- `origen`: `iframe`
+- `destino`: `_BQ`
+- `plantilla`: `line_trend`
+- `territoryLevel`: `municipio`
+
+Cambios aplicados:
+
+- menu: el indicador legado ahora abre el tablero nativo y conserva su ficha.
+- backend: soporte de `codigoM`, tercera serie y columnas crudas con alias.
+- frontend: KPI/serie municipal, cache por municipio y proteccion contra
+  respuestas atrasadas al cambiar rapidamente la seleccion.
+- mapas: se mantienen en el nivel departamental para los cuatro cortes.
+
+QA funcional:
+
+- [x] Carga de grafica y tres series
+- [x] Tabla cruda filtrada al municipio
+- [x] Exportacion Excel filtrada al municipio
+- [x] Mapas departamentales
+- [x] Cambio de departamento y municipio
+- [x] Regresion de indicadores departamentales `_BQ`
+- [x] Validacion responsive y pantalla completa
+
+Resultado:
+
+- estado: `completado`
+- observaciones: el KPI usa el ultimo corte comun (2025); el municipal aparece
+  como N/D porque la tabla no trae `Dato_Municipio` para ese anio.
+- deuda tecnica: no se incorpora cartografia municipal.
+
 ### [Pendiente] Ejemplo de migracion
 
 - `id`: MI_INDICADOR_BQ

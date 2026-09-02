@@ -46,9 +46,9 @@
                     <li><a class="submenu-item" onclick="cambiarMapa('proyeccionCM')">Cabecera municipal</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('proyeccionCPyRD')">Centros poblados y rural disperso</a></li>
                     <li><a class="submenu-title" href="#">Socioeconómicos</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('pm')">Índice de Pobreza Monetaria</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Pobreza_Monetaria_Mun_BQ')">Índice de Pobreza Monetaria</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('pme')">Índice de Pobreza Monetaria Extrema</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('ipm')">Índice de Pobreza Multidimensional</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('IPMultidimensional_Mun_BQ')">Índice de Pobreza Multidimensional</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('gini')">Coeficiente de Gini</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('desempleo')">Tasa de desocupación</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('Empleo_Agro_BQ')">Empleo agropecuario</a></li>
@@ -104,7 +104,7 @@
                 <a href="#" class="dropbtn">Indicadores nutricionales</a>
                 <ul class="dropdown-content">
                     <li><a class="submenu-title" href="#">Seguridad alimentaria</a></li>
-                    <li><a class="submenu-item" onclick="cambiarMapa('InsAlimentariaMoG')">Inseguridad Alimentaria Moderada o Grave - DANE</a></li>
+                    <li><a class="submenu-item" onclick="cambiarMapa('Ins_Alimentaria_Mun_22_BQ')">Inseguridad alimentaria moderada o grave</a></li>
                     <li><a class="submenu-item" onclick="cambiarMapa('InsAlimentariaM')">Inseguridad Alimentaria Grave - DANE</a></li>
                     <li style="display: none;"><a class="submenu-item" onclick="cambiarMapa('InsAlimentaria')">Inseguridad Alimentaria - INS</a></li>
                     <li><a class="submenu-title" href="#">PIN</a></li>
@@ -251,6 +251,7 @@
 								<div class="bq-custom-legend" aria-hidden="true">
 									<span class="bq-legend-item national"><span class="bq-legend-line"></span>Nacional</span>
 									<span class="bq-legend-item department"><span class="bq-legend-line"></span>Departamental</span>
+									<span id="bq-legend-municipality" class="bq-legend-item municipality" style="display:none;"><span class="bq-legend-line"></span>Municipal</span>
 								</div>
 								</div>
 								<div id="bq-table-panel" style="display:none;">
@@ -320,7 +321,7 @@
 	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 	<script src="js/territorios.js"></script>
 	<script src="js/menu_lista_tableros.js"></script>
-	<script src="js/charts_bq.js"></script>
+	<script src="js/charts_bq.js?v=20260902-pm"></script>
     <!--  <script src="js/actualizar_contenido.js"></script>   -->
 	<Script>
 		var itemmenu = lista_tableros();
@@ -362,6 +363,17 @@
 		actualizarTablero("M44001");
 		cambiarMapa("proyeccion");
 		//document.getElementById("proyeccion").classList.add("active");
+		function contextoBQ(codeMunicipio) {
+			const opcionDepartamento = listaDepartamentos.options[listaDepartamentos.selectedIndex];
+			const opcionMunicipio = listaMunicipios.options[listaMunicipios.selectedIndex];
+			return {
+				codigoD: codeDep,
+				codigoM: codeMunicipio || listaMunicipios.value || '',
+				regionLabel: regionByCode[codeRegion] || "N/D",
+				departmentLabel: opcionDepartamento ? opcionDepartamento.text : "N/D",
+				municipalityLabel: opcionMunicipio ? opcionMunicipio.text : "N/D"
+			};
+		}
 		function cambiarMapa(indicador) {
 				currentIndicator = indicador;
 				// El nombre sale del propio menu: sirve igual para los 65
@@ -378,8 +390,7 @@
 					rotulo.textContent = texto;
 				}
 				if (window.isBQIndicator && window.isBQIndicator(indicador)) {
-					const regionSeleccionada = regionByCode[codeRegion] || "N/D";
-					window.renderBQChart(indicador, codeDep, regionSeleccionada);
+					window.renderBQChart(indicador, contextoBQ());
 					urlFicha = itemmenu[indicador]["ficha"];
 					return;
 				}
@@ -398,6 +409,7 @@
 			codeRegion = departamentoReg[departamento]["codeReg"];
 			codeRegion2 = departamentoReg[departamento]["codeReg2"];
 			codeDep = departamentoReg[departamento]["code1"];
+			let codigoMunicipioPredeterminado = '';
 			//console.log(codeRegion + " - " + codeDep);
 			
 			while (listaMunicipios.options.length > 0) {
@@ -412,10 +424,20 @@
 				//console.log(codeMunicipio[0].slice(-3));
 				if ( codeMunicipio[0].slice(-3) === "001"){
 					opcion.selected = true;
-					actualizarTablero(codeMunicipio[0]);
+					codigoMunicipioPredeterminado = codeMunicipio[0];
 				}
 				listaMunicipios.add(opcion);
 			});
+
+			// Esperar a que todas las opciones esten en el selector garantiza que
+			// contextoBQ lea el nombre del mismo municipio cuyo codigo se consulta.
+			if (!codigoMunicipioPredeterminado && listaMunicipios.options.length > 0) {
+				listaMunicipios.selectedIndex = 0;
+				codigoMunicipioPredeterminado = listaMunicipios.value;
+			}
+			if (codigoMunicipioPredeterminado) {
+				actualizarTablero(codigoMunicipioPredeterminado);
+			}
 		}
 		function actualizarTablero(codeMunicipio){
 			url1pdf = "https://lookerstudio.google.com/u/0/reporting/4716e0e1-36aa-4197-9f0d-813551386d91/page/p_73om8mbu9c";
@@ -481,8 +503,7 @@
 			// al parecer cuando copias un tablero los codigos se mantienen por eso URL2 sirve para los dos
 			
 			if (window.isBQIndicator && window.isBQIndicator(currentIndicator)) {
-				const regionSeleccionada = regionByCode[codeRegion] || "N/D";
-				window.renderBQChart(currentIndicator, codeDep, regionSeleccionada);
+				window.renderBQChart(currentIndicator, contextoBQ(codeMunicipio));
 			} else {
 				iframeTablero.src = url1+url2;
 			}

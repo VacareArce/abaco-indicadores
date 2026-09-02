@@ -1,6 +1,7 @@
 (function () {
     let chartInstance = null;
     let activeIndicator = null;
+    let activeRequestKey = null;
     let currentBQSubTab = 'grafica';
     let mapPayload = null;
     let mapPageIndex = 0;
@@ -17,6 +18,11 @@
     const mapApiEndpoint = 'api/charts_bq_map.php';
     const mapGeoJsonPath = 'map/ColDepSNVlite.geojson';
     const MAPS_PER_PAGE = 4;
+    const MUNICIPAL_INDICATORS = new Set([
+        'Ins_Alimentaria_Mun_22_BQ',
+        'IPMultidimensional_Mun_BQ',
+        'Pobreza_Monetaria_Mun_BQ'
+    ]);
     let downloadContext = null;
     // Sufijo de la unidad del indicador activo (%, ha, ha/anio). Lo informa el
     // API en meta.unidad: no todos los indicadores son porcentajes.
@@ -451,8 +457,9 @@
 
         if (!head || !body || !wrap || !empty) return;
 
+        const mostrarIndicador = rawPayload.territoryLevel === 'municipio';
         const cols = (rawPayload.columns || [])
-            .filter(col => col !== 'Indicador_filtro')
+            .filter(col => col !== 'Indicador_filtro' || mostrarIndicador)
             .map(col => (col === 'A__o' ? 'Año' : col));
         const rows = rawPayload.rows || [];
 
@@ -482,7 +489,7 @@
      * renderBQChart con el mismo codigoD y hoy repite las tres peticiones para
      * obtener exactamente lo mismo.
      */
-    const sessionCachePrefix = 'bq:v1:';
+    const sessionCachePrefix = 'bq:v2:';
     const generacionKey = 'bq:generation';
     const versionEndpoint = 'api/bq_cache_version.php';
 
@@ -574,20 +581,22 @@
         return payload;
     }
 
-    async function fetchChartData(indicator, codigoD) {
+    async function fetchChartData(indicator, codigoD, codigoM) {
         const params = new URLSearchParams({ indicator, codigoD });
+        if (codigoM) params.set('codigoM', codigoM);
         return fetchJson(
             `${apiEndpoint}?${params.toString()}`,
-            `chart:${indicator}:${codigoD}`,
+            `chart:${indicator}:${codigoD}:${codigoM || ''}`,
             'No fue posible cargar la grafica.'
         );
     }
 
-    async function fetchRawData(indicator, codigoD) {
+    async function fetchRawData(indicator, codigoD, codigoM) {
         const params = new URLSearchParams({ indicator, codigoD });
+        if (codigoM) params.set('codigoM', codigoM);
         return fetchJson(
             `${rawApiEndpoint}?${params.toString()}`,
-            `raw:${indicator}:${codigoD}`,
+            `raw:${indicator}:${codigoD}:${codigoM || ''}`,
             'No fue posible cargar la tabla de datos crudos.'
         );
     }
@@ -1039,8 +1048,9 @@ window.addEventListener('resize', () => {
         });
     }
 
-    function updateDownloadContext(indicator, codigoD) {
+    function updateDownloadContext(indicator, codigoD, codigoM) {
         downloadContext = { indicator, codigoD };
+        if (codigoM) downloadContext.codigoM = codigoM;
     }
 
     function showChartView() {
@@ -1066,7 +1076,7 @@ window.addEventListener('resize', () => {
         return indicator || 'Indicador';
     }
 
-    function setLoading(isLoading, indicator, regionLabel) {
+    function setLoading(isLoading, indicator, selectionLabel) {
         const dim = el('bq-screen-dim');
         const loading = el('bq-chart-loading');
         const chartView = el('bq-chart-view');
@@ -1074,7 +1084,7 @@ window.addEventListener('resize', () => {
             setText('bq-loading-title', indicatorDisplayName(indicator));
             setText(
                 'bq-loading-region',
-                regionLabel ? `Selección territorial: ${regionLabel}` : 'Preparando la selección territorial…'
+                selectionLabel ? `Selección territorial: ${selectionLabel}` : 'Preparando la selección territorial…'
             );
         }
         if (dim) dim.style.display = isLoading ? 'block' : 'none';
@@ -1092,6 +1102,8 @@ window.addEventListener('resize', () => {
         if (errorBox) errorBox.style.display = 'none';
         setTableIconVisible(false);
         setMapIconVisible(false);
+        activeIndicator = null;
+        activeRequestKey = null;
         mapPayload = null;
         mapPageIndex = 0;
         clearMapPanel('No hay datos para construir mapas departamentales.');
@@ -1126,9 +1138,13 @@ window.addEventListener('resize', () => {
         // 100 %. El resto de unidades mantiene una escala libre.
         const esPorcentajeChico = esPorcentaje && minValue >= 0;
         if (esPorcentajeChico) {
-            const rounded = Math.ceil(maxValue * 1.25);
+            const factorMargen = maxValue > 100 ? 1.05 : 1.25;
+            const rounded = Math.ceil(maxValue * factorMargen);
             const evenMax = rounded % 2 === 0 ? rounded : rounded + 1;
-            return { min: 0, max: Math.min(100, Math.max(6, evenMax)), esPorcentajeChico: true };
+            // Un estimado municipal puede superar levemente 100 %. Se conserva
+            // tal como llega y se amplia el eje para que el punto no se recorte.
+            const maxPorcentaje = maxValue > 100 ? evenMax : Math.min(100, evenMax);
+            return { min: 0, max: Math.max(6, maxPorcentaje), esPorcentajeChico: true };
         }
 
         const span = (maxValue - minValue) || Math.abs(maxValue) || 1;
@@ -1151,7 +1167,9 @@ window.addEventListener('resize', () => {
         const years = data.series.years || [];
         const nacional = data.series.nacional || [];
         const departamental = data.series.departamental || [];
-        const limitesY = computeYBounds([...nacional, ...departamental]);
+        const municipal = data.series.municipal || [];
+        const esMunicipal = data.territoryLevel === 'municipio';
+        const limitesY = computeYBounds([...nacional, ...departamental, ...municipal]);
 
         // Con uno o dos cortes una linea no comunica nada: son uno o dos puntos
         // sueltos. En ese caso se comparan Nacional y Departamento con barras.
@@ -1159,6 +1177,8 @@ window.addEventListener('resize', () => {
 
         const leyenda = document.querySelector('.bq-custom-legend');
         if (leyenda) { leyenda.classList.toggle('barras', esBarras); }
+        const leyendaMunicipal = el('bq-legend-municipality');
+        if (leyendaMunicipal) { leyendaMunicipal.style.display = esMunicipal ? '' : 'none'; }
 
         // Una barra muy corta no tiene sitio para la etiqueta dentro: en ese
         // caso va encima y en el color de la serie, no en blanco.
@@ -1188,7 +1208,24 @@ window.addEventListener('resize', () => {
                         backgroundColor: '#16a6a8'
                     }, esBarras
                         ? { borderWidth: 0, maxBarThickness: 90 }
-                        : { borderWidth: 3, pointRadius: 4, pointHoverRadius: 5, tension: 0 })
+                        : { borderWidth: 3, pointRadius: 4, pointHoverRadius: 5, tension: 0 }),
+                    ...(esMunicipal ? [Object.assign({
+                        label: 'Municipal',
+                        data: municipal,
+                        borderColor: '#f08600',
+                        backgroundColor: '#f08600',
+                        // Une cortes municipales no consecutivos para comunicar
+                        // tendencia, pero distingue visualmente la interpolacion.
+                        spanGaps: true,
+                        segment: {
+                            borderDash: function (ctx) {
+                                const salto = Math.abs(ctx.p1DataIndex - ctx.p0DataIndex);
+                                return ctx.p0.skip || ctx.p1.skip || salto > 1 ? [7, 6] : undefined;
+                            }
+                        }
+                    }, esBarras
+                        ? { borderWidth: 0, maxBarThickness: 90 }
+                        : { borderWidth: 3, pointRadius: 4, pointHoverRadius: 5, tension: 0 })] : [])
                 ]
             },
             options: {
@@ -1214,18 +1251,21 @@ window.addEventListener('resize', () => {
                         }
                     },
                     datalabels: {
-                        // En barras se rotula cada una; en linea solo la
-                        // departamental, para no saturar la serie.
+                        // En barras se rotula cada una; en linea solo el nivel
+                        // territorial mas detallado, para no saturar la serie.
                         display: function (ctx) {
-                            return esBarras ? true : ctx.datasetIndex === 1;
+                            return esBarras ? true : ctx.datasetIndex === (esMunicipal ? 2 : 1);
                         },
                         anchor: esBarras ? 'end' : undefined,
-                        align: esBarras
-                            ? function (ctx) { return barraCorta(ctx) ? 'end' : 'start'; }
-                            : 'top',
+                        align: function (ctx) {
+                            if (esBarras) { return barraCorta(ctx) ? 'end' : 'start'; }
+                            if (ctx.dataIndex === 0) { return 'right'; }
+                            if (ctx.dataIndex === years.length - 1) { return 'left'; }
+                            return 'top';
+                        },
                         offset: esBarras ? 6 : 8,
                         color: function (ctx) {
-                            if (!esBarras) { return '#16a6a8'; }
+                            if (!esBarras) { return esMunicipal ? '#f08600' : '#16a6a8'; }
                             return barraCorta(ctx) ? ctx.dataset.backgroundColor : '#fff';
                         },
                         font: {
@@ -1239,6 +1279,10 @@ window.addEventListener('resize', () => {
                 },
                 scales: {
                     x: {
+                        // Los anios llegan como numeros. Forzar escala de categorias
+                        // evita que Chart.js interprete los indices 0..N como valores
+                        // sobre un eje lineal 2018..2025 y comprima los puntos al inicio.
+                        type: 'category',
                         grid: {
                             display: false
                         },
@@ -1290,30 +1334,39 @@ window.addEventListener('resize', () => {
         });
     }
 
-    async function renderBQChart(indicator, codigoD, regionLabel) {
+    async function renderBQChart(indicator, territoryContext) {
         if (!isBQIndicator(indicator)) {
             hideChartView();
             return;
         }
 
+        const context = territoryContext || {};
+        const codigoD = context.codigoD || '';
+        const codigoM = MUNICIPAL_INDICATORS.has(indicator) ? (context.codigoM || '') : '';
+        const selectionParts = [context.regionLabel, context.departmentLabel];
+        if (codigoM) selectionParts.push(context.municipalityLabel);
+        const selectionLabel = selectionParts.filter(Boolean).join(' · ') || 'N/D';
+        const requestKey = `${indicator}:${codigoD}:${codigoM}`;
+
         activeIndicator = indicator;
+        activeRequestKey = requestKey;
         showChartView();
-        setLoading(true, indicator, regionLabel);
+        setLoading(true, indicator, selectionLabel);
         showError('');
         clearRawTable('Cargando datos crudos...');
         clearMapPanel('Cargando mapas...');
         mapPayload = null;
         mapPageIndex = 0;
-        updateDownloadContext(indicator, codigoD);
+        updateDownloadContext(indicator, codigoD, codigoM);
 
         try {
             const [payload, rawResult, mapResult] = await Promise.all([
-                fetchChartData(indicator, codigoD),
-                fetchRawData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err })),
+                fetchChartData(indicator, codigoD, codigoM),
+                fetchRawData(indicator, codigoD, codigoM).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err })),
                 fetchMapData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err }))
             ]);
 
-            if (activeIndicator !== indicator) {
+            if (activeRequestKey !== requestKey) {
                 return;
             }
 
@@ -1321,13 +1374,13 @@ window.addEventListener('resize', () => {
             setText('bq-chart-title', payload.title || indicator);
             setText('bq-kpi-national', formatPercent(payload.kpis.nacional));
             setText('bq-kpi-department', formatPercent(payload.kpis.departamento));
-            setText('bq-kpi-municipality', 'N/D');
+            setText('bq-kpi-municipality', formatPercent(payload.kpis.municipio));
             document.querySelectorAll('.bq-kpi-year').forEach(function (node) {
                 node.textContent = payload.kpiYear != null ? payload.kpiYear : '';
             });
             ajustarTamanoKPI();
             setText('bq-chart-source', payload.meta.source || '');
-            setText('bq-chart-region', regionLabel || 'N/D');
+            setText('bq-chart-region', selectionLabel);
 
             renderChart(payload);
             if (rawResult.ok) {
@@ -1346,7 +1399,7 @@ window.addEventListener('resize', () => {
             setBQSubTab(currentBQSubTab);
             setLoading(false);
         } catch (error) {
-            if (activeIndicator !== indicator) {
+            if (activeRequestKey !== requestKey) {
                 return;
             }
             setLoading(false);

@@ -12,6 +12,8 @@ $fuenteAgroFamiliar = 'UPRA – Mapa de las áreas que probablemente presentan a
 $fuenteErosion = 'IDEAM – Indicadores Ambientales. Indicador de proporción del área de suelos degradados por erosión';
 $fuenteDesertificacion = 'IDEAM – Indicadores Ambientales. Información sobre degradación de suelos y desertificación en Colombia';
 $fuenteEmpleo = 'DANE – Gran Encuesta Integrada de Hogares (GEIH), Mercado laboral por departamentos. Resultados anuales por rama de actividad económica';
+$fuenteIPM = 'Departamento Administrativo Nacional de Estadística (DANE). Índice de Pobreza Multidimensional y estimaciones municipales mediante modelos de áreas pequeñas (SAE)';
+$fuentePobrezaMonetaria = 'Departamento Administrativo Nacional de Estadística (DANE). Pobreza monetaria y estimaciones municipales mediante modelos de áreas pequeñas (SAE)';
 
 // Aclaraciones que se anexan a la fuente solo donde aplican.
 $notaAniosDobles = 'El dato original corresponde al periodo entre dos años consecutivos; se muestra el primero de cada par.';
@@ -63,6 +65,73 @@ return [
 
         // --- Socioeconomicos ---
         'Empleo_Agro_BQ' => ['table' => 'Empleo_Agro_BQ', 'source' => $fuenteEmpleo, 'escala' => 1, 'unidad' => '%'],
+        'Pobreza_Monetaria_Mun_BQ' => [
+            'table' => 'Pobreza_Monetaria_Mun_BQ',
+            'title' => 'Índice de Pobreza Monetaria',
+            'source' => $fuentePobrezaMonetaria,
+            'escala' => 100,
+            'unidad' => '%',
+            'municipal' => true,
+            'rawColumns' => [
+                'A__o' => 'A__o',
+                'CodigoD' => 'CodigoD',
+                'Departamento' => 'Departamento',
+                'CodigoM' => 'CodigoM',
+                'Municipio' => 'Municipio',
+                'Indicador_filtro' => 'Indicador_filtro',
+                'Tipo_dato' => 'Tipo_Dato',
+                'Tipo_medida' => 'Tipo_de_Medida',
+                'Dato_Nacional' => 'Dato_Nacional',
+                'Dato_Departamento' => 'Dato_Departamento',
+                'Dato_Municipio' => 'Dato_Municipio',
+            ],
+        ],
+        'IPMultidimensional_Mun_BQ' => [
+            'table' => 'IPMultidimensional_Mun_BQ',
+            'title' => 'Índice de Pobreza Multidimensional',
+            'source' => $fuenteIPM,
+            'escala' => 100,
+            'unidad' => '%',
+            'municipal' => true,
+            'rawColumns' => [
+                'A__o' => 'A__o',
+                'CodigoD' => 'CodigoD',
+                'Departamento' => 'Departamento',
+                'CodigoM' => 'CodigoM',
+                'Municipio' => 'Municipio',
+                'Indicador_filtro' => 'Indicador_filtro',
+                'Tipo_dato' => 'Tipo_Dato',
+                'Tipo_medida' => 'Tipo_de_Medida',
+                'Dato_Nacional' => 'Dato_Nacional',
+                'Dato_Departamento' => 'Dato_Departamento',
+                'Dato_Municipio' => 'Dato_Municipio',
+            ],
+        ],
+
+        // --- Nutricionales con detalle municipal ---
+        'Ins_Alimentaria_Mun_22_BQ' => [
+            'table' => 'Ins_Alimentaria_Mun_22_BQ',
+            'title' => 'Inseguridad alimentaria moderada o grave',
+            'source' => $sourceAlimentos,
+            'escala' => 100,
+            'unidad' => '%',
+            'municipal' => true,
+            // La tabla municipal usa mayusculas distintas en dos columnas. Las
+            // expresiones se exponen con las claves canonicas del modulo _BQ.
+            'rawColumns' => [
+                'A__o' => 'A__o',
+                'CodigoD' => 'CodigoD',
+                'Departamento' => 'Departamento',
+                'CodigoM' => 'CodigoM',
+                'Municipio' => 'Municipio',
+                'Indicador_filtro' => 'Indicador_filtro',
+                'Tipo_dato' => 'Tipo_Dato',
+                'Tipo_medida' => 'Tipo_de_Medida',
+                'Dato_Nacional' => 'Dato_Nacional',
+                'Dato_Departamento' => 'Dato_Departamento',
+                'Dato_Municipio' => 'Dato_Municipio',
+            ],
+        ],
     ],
     'rawColumns' => [
         'A__o',

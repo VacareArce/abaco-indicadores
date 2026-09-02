@@ -24,6 +24,7 @@ $indicatorMap = $indicatorConfig['indicators'];
 
 $indicator = isset($_GET['indicator']) ? trim((string) $_GET['indicator']) : '';
 $codigoD = isset($_GET['codigoD']) ? strtoupper(trim((string) $_GET['codigoD'])) : '';
+$codigoM = isset($_GET['codigoM']) ? strtoupper(trim((string) $_GET['codigoM'])) : '';
 
 if (!isset($indicatorMap[$indicator])) {
     http_response_code(422);
@@ -39,6 +40,34 @@ if (!preg_match('/^D\d{2}$/', $codigoD)) {
     echo json_encode([
         'ok' => false,
         'error' => 'codigoD invalido. Debe tener formato D##, por ejemplo D44.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$isMunicipal = (bool) ($indicatorMap[$indicator]['municipal'] ?? false);
+if ($codigoM !== '' && !preg_match('/^M\d{5}$/', $codigoM)) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM invalido. Debe tener formato M#####, por ejemplo M44001.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && $codigoM === '') {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM es requerido para este indicador municipal.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && substr($codigoM, 1, 2) !== substr($codigoD, 1, 2)) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM no pertenece al codigoD seleccionado.'
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -113,47 +142,64 @@ try {
     $escala = (float) ($indicatorMap[$indicator]['escala'] ?? 100);
     $unidad = (string) ($indicatorMap[$indicator]['unidad'] ?? '%');
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
+    $cacheKey = $isMunicipal
+        ? "chart:v2:{$indicator}:{$codigoD}:{$codigoM}"
+        : "chart:v2:{$indicator}:{$codigoD}";
 
     $payload = bqCacheServe(
         bqCacheDir($config),
         $indicator,
-        "chart:{$indicator}:{$codigoD}",
+        $cacheKey,
         bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
-        static function () use ($bigQuery, $tableRef, $codigoD, $indicator, $indicatorMap, $escala, $unidad): array {
+        static function () use ($bigQuery, $tableRef, $codigoD, $codigoM, $indicator, $indicatorMap, $escala, $unidad, $isMunicipal): array {
             // Una sola consulta cubre serie, KPI y titulo. El KPI es la fila del ultimo
             // anio de la serie -- mismo AVG sobre el mismo filtro -- y el titulo es el
             // mismo ANY_VALUE que antes se pedia aparte.
+            $municipalSelect = $isMunicipal
+                ? ', AVG(Dato_Municipio) AS municipal, ANY_VALUE(Municipio) AS municipio'
+                : '';
+            $municipalFilter = $isMunicipal ? ' AND CodigoM = @codigoM' : '';
             $seriesSql = "
                 SELECT
                     CAST(A__o AS INT64) AS anio,
                     AVG(Dato_Nacional) AS nacional,
                     AVG(Dato_Departamento) AS departamental,
                     ANY_VALUE(Indicador_filtro) AS indicador_filtro
+                    {$municipalSelect}
                 FROM {$tableRef}
                 WHERE CodigoD = @codigoD
                   AND A__o IS NOT NULL
+                  {$municipalFilter}
                 GROUP BY anio
                 ORDER BY anio
             ";
 
-            $seriesQuery = $bigQuery->query($seriesSql)->parameters([
-                'codigoD' => $codigoD,
-            ]);
+            $params = ['codigoD' => $codigoD];
+            if ($isMunicipal) {
+                $params['codigoM'] = $codigoM;
+            }
+            $seriesQuery = $bigQuery->query($seriesSql)->parameters($params);
 
             $seriesResults = $bigQuery->runQuery($seriesQuery);
 
             $years = [];
             $nacional = [];
             $departamental = [];
+            $municipal = [];
+            $municipio = null;
             $titleFromData = null;
 
             foreach ($seriesResults as $row) {
                 $years[] = (int) $row['anio'];
                 $nacional[] = valueToPercent($row['nacional'], $escala);
                 $departamental[] = valueToPercent($row['departamental'], $escala);
+                $municipal[] = $isMunicipal ? valueToPercent($row['municipal'] ?? null, $escala) : null;
 
                 if ($titleFromData === null && isset($row['indicador_filtro'])) {
                     $titleFromData = trim((string) $row['indicador_filtro']);
+                }
+                if ($municipio === null && isset($row['municipio'])) {
+                    $municipio = trim((string) $row['municipio']);
                 }
             }
 
@@ -164,26 +210,30 @@ try {
             $kpiIndex = $latestYear !== null ? array_search($latestYear, $years, true) : false;
             $kpiNacional = $kpiIndex !== false ? $nacional[$kpiIndex] : null;
             $kpiDepartamento = $kpiIndex !== false ? $departamental[$kpiIndex] : null;
+            $kpiMunicipio = $isMunicipal && $kpiIndex !== false ? $municipal[$kpiIndex] : null;
 
             return [
                 'ok' => true,
                 'indicator' => $indicator,
-                'title' => $titleFromData !== '' && $titleFromData !== null
-                    ? $titleFromData
-                    : $indicator,
+                'title' => $indicatorMap[$indicator]['title']
+                    ?? ($titleFromData !== '' && $titleFromData !== null ? $titleFromData : $indicator),
+                'territoryLevel' => $isMunicipal ? 'municipio' : 'departamento',
                 'kpis' => [
                     'nacional' => $kpiNacional,
                     'departamento' => $kpiDepartamento,
-                    'municipio' => null,
+                    'municipio' => $kpiMunicipio,
                 ],
                 'kpiYear' => $latestYear,
                 'series' => [
                     'years' => $years,
                     'nacional' => $nacional,
                     'departamental' => $departamental,
+                    'municipal' => $isMunicipal ? $municipal : [],
                 ],
                 'meta' => [
                     'codigoD' => $codigoD,
+                    'codigoM' => $isMunicipal ? $codigoM : null,
+                    'municipio' => $isMunicipal ? $municipio : null,
                     'unidad' => $unidad,
                     'source' => bqConNotas(
                         bqSourceWithRange($indicatorMap[$indicator]['source'] ?? null, $years),

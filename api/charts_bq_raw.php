@@ -25,6 +25,7 @@ $rawColumns = $indicatorConfig['rawColumns'];
 
 $indicator = isset($_GET['indicator']) ? trim((string) $_GET['indicator']) : '';
 $codigoD = isset($_GET['codigoD']) ? strtoupper(trim((string) $_GET['codigoD'])) : '';
+$codigoM = isset($_GET['codigoM']) ? strtoupper(trim((string) $_GET['codigoM'])) : '';
 $year = isset($_GET['year']) ? trim((string) $_GET['year']) : '';
 
 if (!isset($indicatorMap[$indicator])) {
@@ -41,6 +42,34 @@ if (!preg_match('/^D\d{2}$/', $codigoD)) {
     echo json_encode([
         'ok' => false,
         'error' => 'codigoD invalido. Debe tener formato D##, por ejemplo D44.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$isMunicipal = (bool) ($indicatorMap[$indicator]['municipal'] ?? false);
+if ($codigoM !== '' && !preg_match('/^M\d{5}$/', $codigoM)) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM invalido. Debe tener formato M#####, por ejemplo M44001.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && $codigoM === '') {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM es requerido para este indicador municipal.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && substr($codigoM, 1, 2) !== substr($codigoD, 1, 2)) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM no pertenece al codigoD seleccionado.'
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -68,14 +97,26 @@ try {
 
     $tableName = $indicatorMap[$indicator]['table'];
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
-    $columnSql = implode(', ', $rawColumns);
+    $rawColumnMap = $indicatorMap[$indicator]['rawColumns']
+        ?? array_combine($rawColumns, $rawColumns);
+    $responseColumns = array_keys($rawColumnMap);
+    $columnSql = implode(', ', array_map(
+        static fn (string $alias, string $expression): string => $expression === $alias
+            ? $expression
+            : "{$expression} AS {$alias}",
+        $responseColumns,
+        array_values($rawColumnMap)
+    ));
+    $cacheKey = $isMunicipal
+        ? "raw:v2:{$indicator}:{$codigoD}:{$codigoM}:{$year}"
+        : "raw:v2:{$indicator}:{$codigoD}:{$year}";
 
     $payload = bqCacheServe(
         bqCacheDir($config),
         $indicator,
-        "raw:{$indicator}:{$codigoD}:{$year}",
+        $cacheKey,
         bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
-        static function () use ($bigQuery, $tableRef, $columnSql, $codigoD, $year, $indicator, $rawColumns): array {
+        static function () use ($bigQuery, $tableRef, $columnSql, $codigoD, $codigoM, $year, $indicator, $responseColumns, $isMunicipal): array {
 
             $sql = "
                 SELECT {$columnSql}
@@ -84,6 +125,10 @@ try {
             ";
 
             $params = ['codigoD' => $codigoD];
+            if ($isMunicipal) {
+                $sql .= ' AND CodigoM = @codigoM';
+                $params['codigoM'] = $codigoM;
+            }
             if ($year !== '') {
                 $sql .= ' AND CAST(A__o AS INT64) = @year';
                 $params['year'] = (int) $year;
@@ -97,7 +142,7 @@ try {
             $rows = [];
             foreach ($queryResults as $row) {
                 $formatted = [];
-                foreach ($rawColumns as $col) {
+                foreach ($responseColumns as $col) {
                     $formatted[$col] = $row[$col] ?? null;
                 }
                 $rows[] = $formatted;
@@ -106,7 +151,8 @@ try {
             return [
                 'ok' => true,
                 'indicator' => $indicator,
-                'columns' => $rawColumns,
+                'territoryLevel' => $isMunicipal ? 'municipio' : 'departamento',
+                'columns' => $responseColumns,
                 'rows' => $rows,
                 'total' => count($rows),
             ];
