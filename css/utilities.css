@@ -18,27 +18,40 @@ div.cuerpo {
 
 .embed-container {
     position: relative;
-    padding-bottom: calc(70%);
-    height: 0
+    width: 100%;
+}
+
+/* Looker necesita un lienzo proporcional porque su iframe esta fuera del flujo. */
+.embed-container--looker {
+    height: 0;
+    padding-bottom: 70%;
     overflow: hidden;
 }
+
+/* Los tableros BQ tienen altura variable y deben permanecer en el flujo normal. */
+.embed-container--bq {
+    height: auto;
+    padding-bottom: 0;
+    overflow: visible;
+}
+
 @media (max-width: 1700px) {
-	.embed-container {
+	.embed-container--looker {
 		padding-bottom: 70%;
 	}
 }
 @media (max-width: 1300px) {
-	.embed-container {
+	.embed-container--looker {
 		padding-bottom: calc(70% + 1px);
 	}
 }
 @media (max-width: 1000px) {
-	.embed-container {
+	.embed-container--looker {
 		padding-bottom: calc(70% + 1px);
 	}
 }
 
-.embed-container iframe {
+.embed-container--looker #tablero {
     position: absolute;
     top:0;
     left: 0;

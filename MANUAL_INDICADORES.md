@@ -14,7 +14,7 @@ Este manual describe como agregar y mantener indicadores en el dashboard de ABAC
 - `api/bq_indicator_map.php`: mapeo de indicadores `_BQ` -> tabla BigQuery y fuente.
 - `api/charts_bq.php`: serie historica y KPI para la grafica `_BQ`.
 - `api/charts_bq_raw.php`: datos crudos para tabla `_BQ`.
-- `api/charts_bq_export.php`: exportacion CSV de datos crudos.
+- `api/charts_bq_export.php`: exportacion Excel (`.xlsx`) de datos crudos.
 - `api/charts_bq_map.php`: datos departamentales por año para mapas `_BQ`.
 - `js/charts_bq.js`: logica frontend de vista `_BQ` (grafica/tabla/mapa).
 - `map/ColDepSNVlite.geojson`: geometria de departamentos para Leaflet.
@@ -100,7 +100,7 @@ Editar `index.html` en el bloque del menu:
 Para indicadores con sufijo `_BQ`, el usuario tiene:
 
 - `Grafica`: serie temporal nacional/departamental.
-- `Tabla`: datos crudos + descarga CSV.
+- `Tabla`: datos crudos + descarga Excel.
 - `Mapa`: Leaflet por departamentos.
 
 En mapas:
@@ -129,7 +129,7 @@ Despues de agregar o modificar indicadores:
 2. Abrir un indicador `_BQ` y validar:
    - grafica visible,
    - tabla con datos,
-   - descarga CSV,
+   - descarga Excel,
    - mapas por año,
    - comparacion de años,
    - apertura en ventana ampliada desde `Pantalla completa`.

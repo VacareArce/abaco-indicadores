@@ -19,4 +19,9 @@ return [
 
     // Ruta local de credenciales (ejemplo)
     'credentialsPath' => 'C:/ruta/privada/bq-observatorio.json',
+
+    // Token para api/bq_cache_purge.php. Si se deja vacio o se omite, ese
+    // endpoint responde 404 y no se puede purgar el cache a mano.
+    // Generalo con: php -r "echo bin2hex(random_bytes(16));"
+    'purgeToken' => '',
 ];

@@ -16,12 +16,15 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 $indicatorConfig = require __DIR__ . '/bq_indicator_map.php';
 $indicatorMap = $indicatorConfig['indicators'];
 
 $indicator = isset($_GET['indicator']) ? trim((string) $_GET['indicator']) : '';
 $codigoD = isset($_GET['codigoD']) ? strtoupper(trim((string) $_GET['codigoD'])) : '';
+$codigoM = isset($_GET['codigoM']) ? strtoupper(trim((string) $_GET['codigoM'])) : '';
 
 if (!isset($indicatorMap[$indicator])) {
     http_response_code(422);
@@ -41,6 +44,34 @@ if (!preg_match('/^D\d{2}$/', $codigoD)) {
     exit;
 }
 
+$isMunicipal = (bool) ($indicatorMap[$indicator]['municipal'] ?? false);
+if ($codigoM !== '' && !preg_match('/^M\d{5}$/', $codigoM)) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM invalido. Debe tener formato M#####, por ejemplo M44001.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && $codigoM === '') {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM es requerido para este indicador municipal.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && substr($codigoM, 1, 2) !== substr($codigoD, 1, 2)) {
+    http_response_code(422);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM no pertenece al codigoD seleccionado.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if (($config['credentialsPath'] ?? '') !== '' && !is_file($config['credentialsPath'])) {
     http_response_code(500);
     echo json_encode([
@@ -51,117 +82,177 @@ if (($config['credentialsPath'] ?? '') !== '' && !is_file($config['credentialsPa
 }
 
 /**
+ * Lleva el valor guardado a su unidad de presentacion.
+ *
+ * La escala se declara por indicador en bq_indicator_map.php: unas tablas
+ * guardan fraccion (0.0231 -> 2.31 %) y otras ya guardan el valor final
+ * (51.74 %, 1496026 ha). 'Tipo_dato' no alcanza para distinguirlas.
+ *
  * @param mixed $value
  */
-function valueToPercent($value): ?float
+function valueToPercent($value, float $escala = 100.0): ?float
 {
     if ($value === null) {
         return null;
     }
 
-    return round(((float) $value) * 100, 2);
+    return round(((float) $value) * $escala, 2);
+}
+
+/**
+ * Cierra la cita de la fuente con el rango de anios realmente presente en el dato,
+ * para que no quede un rango fijo desactualizado cuando entre un anio nuevo.
+ *
+ * @param int[] $years
+ */
+function bqSourceWithRange(?string $source, array $years): string
+{
+    $base = $source !== null && trim($source) !== ''
+        ? rtrim(trim($source), '.')
+        : 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV)';
+
+    if ($years === []) {
+        return $base . '.';
+    }
+
+    $min = min($years);
+    $max = max($years);
+
+    return $base . ', ' . ($min === $max ? (string) $min : $min . ' - ' . $max) . '.';
+}
+
+/**
+ * Anexa las aclaraciones del indicador (anios dobles, area en litigio) despues
+ * de la cita de la fuente. Solo las llevan los indicadores que las declaran en
+ * bq_indicator_map.php.
+ *
+ * @param string[] $notas
+ */
+function bqConNotas(string $fuente, array $notas): string
+{
+    $limpias = array_filter(array_map('trim', $notas));
+
+    return $limpias === [] ? $fuente : $fuente . ' ' . implode(' ', $limpias);
 }
 
 try {
-    $clientConfig = ['projectId' => $config['projectId']];
-    if (($config['credentialsPath'] ?? '') !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
+    $escala = (float) ($indicatorMap[$indicator]['escala'] ?? 100);
+    $unidad = (string) ($indicatorMap[$indicator]['unidad'] ?? '%');
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
+    $cacheKey = $isMunicipal
+        ? "chart:v3:{$indicator}:{$codigoD}:{$codigoM}"
+        : "chart:v3:{$indicator}:{$codigoD}";
 
-    $seriesSql = "
-        SELECT
-            CAST(A__o AS INT64) AS anio,
-            AVG(Dato_Nacional) AS nacional,
-            AVG(Dato_Departamento) AS departamental
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-          AND A__o BETWEEN 2021 AND 2024
-        GROUP BY anio
-        ORDER BY anio
-    ";
+    $payload = bqCacheServe(
+        bqCacheDir($config),
+        $indicator,
+        $cacheKey,
+        bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
+        static function () use ($bigQuery, $tableRef, $codigoD, $codigoM, $indicator, $indicatorMap, $escala, $unidad, $isMunicipal, $minYear): array {
+            // Una sola consulta cubre serie, KPI y titulo. El KPI es la fila del ultimo
+            // anio de la serie -- mismo AVG sobre el mismo filtro -- y el titulo es el
+            // mismo ANY_VALUE que antes se pedia aparte.
+            $municipalSelect = $isMunicipal
+                ? ', AVG(Dato_Municipio) AS municipal, ANY_VALUE(Municipio) AS municipio'
+                : '';
+            $municipalFilter = $isMunicipal ? ' AND CodigoM = @codigoM' : '';
+            $minYearFilter = $minYear !== null ? ' AND CAST(A__o AS INT64) >= @minYear' : '';
+            $seriesSql = "
+                SELECT
+                    CAST(A__o AS INT64) AS anio,
+                    AVG(Dato_Nacional) AS nacional,
+                    AVG(Dato_Departamento) AS departamental,
+                    ANY_VALUE(Indicador_filtro) AS indicador_filtro
+                    {$municipalSelect}
+                FROM {$tableRef}
+                WHERE CodigoD = @codigoD
+                  AND A__o IS NOT NULL
+                  {$municipalFilter}
+                  {$minYearFilter}
+                GROUP BY anio
+                ORDER BY anio
+            ";
 
-    $seriesQuery = $bigQuery->query($seriesSql)->parameters([
-        'codigoD' => $codigoD,
-    ]);
+            $params = ['codigoD' => $codigoD];
+            if ($isMunicipal) {
+                $params['codigoM'] = $codigoM;
+            }
+            if ($minYear !== null) {
+                $params['minYear'] = $minYear;
+            }
+            $seriesQuery = $bigQuery->query($seriesSql)->parameters($params);
 
-    $seriesResults = $bigQuery->runQuery($seriesQuery);
+            $seriesResults = $bigQuery->runQuery($seriesQuery);
 
-    $years = [];
-    $nacional = [];
-    $departamental = [];
+            $years = [];
+            $nacional = [];
+            $departamental = [];
+            $municipal = [];
+            $municipio = null;
+            $titleFromData = null;
 
-    foreach ($seriesResults as $row) {
-        $years[] = (int) $row['anio'];
-        $nacional[] = valueToPercent($row['nacional']);
-        $departamental[] = valueToPercent($row['departamental']);
-    }
+            foreach ($seriesResults as $row) {
+                $years[] = (int) $row['anio'];
+                $nacional[] = valueToPercent($row['nacional'], $escala);
+                $departamental[] = valueToPercent($row['departamental'], $escala);
+                $municipal[] = $isMunicipal ? valueToPercent($row['municipal'] ?? null, $escala) : null;
 
-    $kpiSql = "
-        SELECT
-            AVG(Dato_Nacional) AS nacional_2024,
-            AVG(Dato_Departamento) AS departamento_2024
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-          AND A__o = 2024
-    ";
+                if ($titleFromData === null && isset($row['indicador_filtro'])) {
+                    $titleFromData = trim((string) $row['indicador_filtro']);
+                }
+                if ($municipio === null && isset($row['municipio'])) {
+                    $municipio = trim((string) $row['municipio']);
+                }
+            }
 
-    $kpiQuery = $bigQuery->query($kpiSql)->parameters([
-        'codigoD' => $codigoD,
-    ]);
+            // El anio del KPI sale del propio dato, no del reloj del servidor:
+            // la ECV llega con rezago y CURRENT_DATE() dejaria los KPIs vacios.
+            $latestYear = $years !== [] ? max($years) : null;
 
-    $kpiResults = $bigQuery->runQuery($kpiQuery);
+            $kpiIndex = $latestYear !== null ? array_search($latestYear, $years, true) : false;
+            $kpiNacional = $kpiIndex !== false ? $nacional[$kpiIndex] : null;
+            $kpiDepartamento = $kpiIndex !== false ? $departamental[$kpiIndex] : null;
+            $kpiMunicipio = $isMunicipal && $kpiIndex !== false ? $municipal[$kpiIndex] : null;
 
-    $kpiRow = null;
-    foreach ($kpiResults as $row) {
-        $kpiRow = $row;
-        break;
-    }
+            return [
+                'ok' => true,
+                'indicator' => $indicator,
+                'title' => $indicatorMap[$indicator]['title']
+                    ?? ($titleFromData !== '' && $titleFromData !== null ? $titleFromData : $indicator),
+                'territoryLevel' => $isMunicipal ? 'municipio' : 'departamento',
+                'kpis' => [
+                    'nacional' => $kpiNacional,
+                    'departamento' => $kpiDepartamento,
+                    'municipio' => $kpiMunicipio,
+                ],
+                'kpiYear' => $latestYear,
+                'series' => [
+                    'years' => $years,
+                    'nacional' => $nacional,
+                    'departamental' => $departamental,
+                    'municipal' => $isMunicipal ? $municipal : [],
+                ],
+                'meta' => [
+                    'codigoD' => $codigoD,
+                    'codigoM' => $isMunicipal ? $codigoM : null,
+                    'municipio' => $isMunicipal ? $municipio : null,
+                    'unidad' => $unidad,
+                    'source' => bqConNotas(
+                        bqSourceWithRange($indicatorMap[$indicator]['source'] ?? null, $years),
+                        $indicatorMap[$indicator]['notas'] ?? []
+                    ),
+                ],
+            ];
+        }
+    );
 
-    $titleSql = "
-        SELECT ANY_VALUE(Indicador_filtro) AS indicador_filtro
-        FROM {$tableRef}
-        WHERE CodigoD = @codigoD
-          AND A__o BETWEEN 2021 AND 2024
-    ";
-
-    $titleQuery = $bigQuery->query($titleSql)->parameters([
-        'codigoD' => $codigoD,
-    ]);
-
-    $titleResults = $bigQuery->runQuery($titleQuery);
-    $titleFromData = null;
-    foreach ($titleResults as $row) {
-        $titleFromData = isset($row['indicador_filtro']) ? trim((string) $row['indicador_filtro']) : null;
-        break;
-    }
-
-    echo json_encode([
-        'ok' => true,
-        'indicator' => $indicator,
-        'title' => $titleFromData !== '' && $titleFromData !== null
-            ? $titleFromData
-            : $indicator,
-        'kpis' => [
-            'nacional_2024' => valueToPercent($kpiRow['nacional_2024'] ?? null),
-            'departamento_2024' => valueToPercent($kpiRow['departamento_2024'] ?? null),
-            'municipio_2024' => null,
-        ],
-        'series' => [
-            'years' => $years,
-            'nacional' => $nacional,
-            'departamental' => $departamental,
-        ],
-        'meta' => [
-            'codigoD' => $codigoD,
-            'source' => $indicatorMap[$indicator]['source']
-                ?? 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.',
-        ],
-    ], JSON_UNESCAPED_UNICODE);
+    bqSendJson($payload);
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([

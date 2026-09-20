@@ -1,6 +1,7 @@
 (function () {
     let chartInstance = null;
     let activeIndicator = null;
+    let activeRequestKey = null;
     let currentBQSubTab = 'grafica';
     let mapPayload = null;
     let mapPageIndex = 0;
@@ -17,7 +18,15 @@
     const mapApiEndpoint = 'api/charts_bq_map.php';
     const mapGeoJsonPath = 'map/ColDepSNVlite.geojson';
     const MAPS_PER_PAGE = 4;
+    const MUNICIPAL_INDICATORS = new Set([
+        'Ins_Alimentaria_Mun_22_BQ',
+        'IPMultidimensional_Mun_BQ',
+        'Pobreza_Monetaria_Mun_BQ'
+    ]);
     let downloadContext = null;
+    // Sufijo de la unidad del indicador activo (%, ha, ha/anio). Lo informa el
+    // API en meta.unidad: no todos los indicadores son porcentajes.
+    let unidadActual = '%';
 
     function el(id) {
         return document.getElementById(id);
@@ -27,12 +36,54 @@
         return typeof indicator === 'string' && indicator.endsWith(BQ_SUFFIX);
     }
 
+    // Nombre legible de la unidad, para el titulo del eje Y.
+    function nombreUnidad(u) {
+        if (u === 'ha') { return 'Hectáreas'; }
+        if (u === 'ha/año') { return 'Hectáreas por año'; }
+        return 'Porcentaje';
+    }
+
+    // Los porcentajes se leen con dos decimales; las magnitudes absolutas
+    // (hectareas) sin decimales, que a millones no aportan nada.
+    function decimalesDeUnidad(u) {
+        return u === '%' ? 2 : 0;
+    }
+
+    // 'es-CO' da separador de miles '.' y decimal ','.
+    function formatearNumero(value, unidad) {
+        const d = decimalesDeUnidad(unidad);
+        return Number(value).toLocaleString('es-CO', {
+            minimumFractionDigits: d,
+            maximumFractionDigits: d
+        });
+    }
+
     function formatPercent(value) {
         if (value === null || value === undefined || Number.isNaN(Number(value))) {
             return 'N/D';
         }
 
-        return `${Number(value).toFixed(2).replace('.', ',')} %`;
+        return `${formatearNumero(value, unidadActual)} ${unidadActual}`;
+    }
+
+    // Con white-space: nowrap el numero no se parte, pero uno muy largo se
+    // saldria de la tarjeta. Se reduce la fuente hasta que quepa; truncarlo con
+    // puntos suspensivos perderia digitos, que en una cifra no es aceptable.
+    function ajustarTamanoKPI() {
+        document.querySelectorAll('.bq-kpi-card').forEach(function (card) {
+            const valor = card.querySelector('.bq-kpi-value');
+            if (!valor) { return; }
+
+            const base = parseFloat(getComputedStyle(card).getPropertyValue('--kpi-font-base')) || 27;
+            valor.style.fontSize = base + 'px';
+
+            let tam = base;
+            // 15px es el piso: por debajo el dato deja de leerse de un vistazo.
+            while (tam > 15 && valor.scrollWidth > valor.clientWidth) {
+                tam -= 1;
+                valor.style.fontSize = tam + 'px';
+            }
+        });
     }
 
     function setText(id, value) {
@@ -43,7 +94,7 @@
     }
 
     function setDownloadEnabled(enabled) {
-        const btn = el('bq-download-csv');
+        const btn = el('bq-download-excel');
         if (!btn) return;
         btn.disabled = !enabled;
     }
@@ -123,7 +174,7 @@
         if (value === null || value === undefined || Number.isNaN(Number(value))) {
             return 'N/D';
         }
-        return `${Number(value).toFixed(2).replace('.', ',')} %`;
+        return `${formatearNumero(value, unidadActual)} ${unidadActual}`;
     }
 
     function mapColor(value, min, max) {
@@ -406,8 +457,9 @@
 
         if (!head || !body || !wrap || !empty) return;
 
+        const mostrarIndicador = rawPayload.territoryLevel === 'municipio';
         const cols = (rawPayload.columns || [])
-            .filter(col => col !== 'Indicador_filtro')
+            .filter(col => col !== 'Indicador_filtro' || mostrarIndicador)
             .map(col => (col === 'A__o' ? 'Año' : col));
         const rows = rawPayload.rows || [];
 
@@ -430,28 +482,133 @@
         setDownloadEnabled(true);
     }
 
-    async function fetchRawData(indicator, codigoD) {
-        const params = new URLSearchParams({ indicator, codigoD });
-        const response = await fetch(`${rawApiEndpoint}?${params.toString()}`);
+    /*
+     * Cache de sesion. El cache del servidor ya evita el viaje a BigQuery; este
+     * evita repetir la peticion entera. El caso concreto es cambiar de municipio
+     * dentro del mismo departamento: actualizarTablero() vuelve a llamar a
+     * renderBQChart con el mismo codigoD y hoy repite las tres peticiones para
+     * obtener exactamente lo mismo.
+     */
+    const sessionCachePrefix = 'bq:v2:';
+    const generacionKey = 'bq:generation';
+    const versionEndpoint = 'api/bq_cache_version.php';
+
+    /*
+     * Sello de generacion.
+     *
+     * El cache de abajo no revalida a proposito: es lo que lo hace instantaneo
+     * al cambiar de municipio. Validar cada lectura contra el servidor haria la
+     * peticion igual y solo ahorraria el cuerpo de la respuesta, perdiendo el
+     * beneficio. En cambio se comprueba UNA vez por carga: si el servidor
+     * cambio de sello (alguien purgo), se vacia todo lo guardado.
+     */
+    function vaciarCacheSesion() {
+        try {
+            Object.keys(sessionStorage)
+                .filter(function (k) { return k.indexOf(sessionCachePrefix) === 0; })
+                .forEach(function (k) { sessionStorage.removeItem(k); });
+        } catch (error) {
+            // Navegacion privada o cuota: no hay nada que vaciar.
+        }
+    }
+
+    async function comprobarGeneracion() {
+        try {
+            const respuesta = await fetch(versionEndpoint, { cache: 'no-store' });
+            if (!respuesta.ok) { return; }
+
+            const datos = await respuesta.json();
+            const actual = datos && datos.generation ? String(datos.generation) : '';
+            if (actual === '') { return; }
+
+            const guardada = sessionStorage.getItem(generacionKey);
+            if (guardada !== actual) {
+                vaciarCacheSesion();
+                sessionStorage.setItem(generacionKey, actual);
+            }
+        } catch (error) {
+            // Fallar en abierto: un problema de red no debe dejar la app sin
+            // cache ni borrar lo que ya tiene.
+        }
+    }
+
+    let generacionLista = comprobarGeneracion();
+
+    // Al volver a la pestana se recomprueba: cubre tener el tablero abierto
+    // mientras se purga desde otro sitio, sin necesidad de sondeo.
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            generacionLista = comprobarGeneracion();
+        }
+    });
+
+    function sessionCacheGet(key) {
+        try {
+            const raw = sessionStorage.getItem(sessionCachePrefix + key);
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            return null; // Navegacion privada o cuota llena: se sigue sin cache.
+        }
+    }
+
+    function sessionCacheSet(key, payload) {
+        try {
+            sessionStorage.setItem(sessionCachePrefix + key, JSON.stringify(payload));
+        } catch (error) {
+            // Sin cache de sesion todo funciona igual, solo que se vuelve a pedir.
+        }
+    }
+
+    async function fetchJson(url, cacheKey, errorMessage) {
+        // Sin esto se podria servir una entrada de la generacion anterior antes
+        // de que llegue la comprobacion. Solo cuesta la primera vez.
+        await generacionLista;
+
+        const cached = sessionCacheGet(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
+        const response = await fetch(url);
         const payload = await response.json();
 
         if (!response.ok || !payload.ok) {
-            throw new Error(payload.error || 'No fue posible cargar la tabla de datos crudos.');
+            throw new Error(payload.error || errorMessage);
         }
+
+        sessionCacheSet(cacheKey, payload);
 
         return payload;
     }
 
+    async function fetchChartData(indicator, codigoD, codigoM) {
+        const params = new URLSearchParams({ indicator, codigoD });
+        if (codigoM) params.set('codigoM', codigoM);
+        return fetchJson(
+            `${apiEndpoint}?${params.toString()}`,
+            `chart:${indicator}:${codigoD}:${codigoM || ''}`,
+            'No fue posible cargar la grafica.'
+        );
+    }
+
+    async function fetchRawData(indicator, codigoD, codigoM) {
+        const params = new URLSearchParams({ indicator, codigoD });
+        if (codigoM) params.set('codigoM', codigoM);
+        return fetchJson(
+            `${rawApiEndpoint}?${params.toString()}`,
+            `raw:${indicator}:${codigoD}:${codigoM || ''}`,
+            'No fue posible cargar la tabla de datos crudos.'
+        );
+    }
+
     async function fetchMapData(indicator, codigoD) {
         const params = new URLSearchParams({ indicator, codigoD });
-        const response = await fetch(`${mapApiEndpoint}?${params.toString()}`);
-        const payload = await response.json();
-
-        if (!response.ok || !payload.ok) {
-            throw new Error(payload.error || 'No fue posible cargar los mapas departamentales.');
-        }
-
-        return payload;
+        // La clave lleva codigoD porque meta.selectedCode cambia con el departamento.
+        return fetchJson(
+            `${mapApiEndpoint}?${params.toString()}`,
+            `map:${indicator}:${codigoD}`,
+            'No fue posible cargar los mapas departamentales.'
+        );
     }
 
     async function renderMapPage() {
@@ -691,6 +848,7 @@
         const selectedCodeJson = escapeScriptText(JSON.stringify(params.selectedCode));
         const indicatorTitleJson = escapeScriptText(JSON.stringify(params.title));
         const preferFullscreenJson = JSON.stringify(!!params.preferFullscreen);
+        const unidadJson = escapeScriptText(JSON.stringify(params.unidad || '%'));
 
         return `<!doctype html>
 <html lang="es">
@@ -727,6 +885,7 @@ body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #f0f0f0; 
 <script>
 const geoData = ${geoDataJson};
 const mapItems = ${mapsJson};
+const unidad = ${unidadJson};
 const scale = ${scaleJson};
 const selectedCode = ${selectedCodeJson};
 const indicatorTitle = ${indicatorTitleJson};
@@ -770,7 +929,8 @@ function mapColor(value, min, max) {
 
 function formatMapPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return 'N/D';
-  return Number(value).toFixed(2).replace('.', ',') + ' %';
+  var d = unidad === '%' ? 2 : 0;
+  return Number(value).toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' ' + unidad;
 }
 
 const grid = document.getElementById('popup-grid');
@@ -870,6 +1030,7 @@ window.addEventListener('resize', () => {
         const html = buildMapPopupHtml({
             geoData,
             maps: mapItems,
+            unidad: unidadActual,
             scale: getMapScale(),
             selectedCode: normalizeDeptCode((mapPayload.meta && mapPayload.meta.selectedCode) || ''),
             title: mapPayload.title || activeIndicator || 'Mapas departamentales',
@@ -887,26 +1048,63 @@ window.addEventListener('resize', () => {
         });
     }
 
-    function updateDownloadContext(indicator, codigoD) {
+    function updateDownloadContext(indicator, codigoD, codigoM) {
         downloadContext = { indicator, codigoD };
+        if (codigoM) downloadContext.codigoM = codigoM;
+    }
+
+    function setEmbedLayoutMode(mode) {
+        if (mode !== 'looker' && mode !== 'bq') return;
+
+        const container = document.querySelector('.embed-container');
+        if (!container) return;
+
+        container.classList.remove('embed-container--looker', 'embed-container--bq');
+        container.classList.add(`embed-container--${mode}`);
+        container.dataset.embedMode = mode;
     }
 
     function showChartView() {
         const iframe = el('tablero');
         const chartView = el('bq-chart-view');
+        setEmbedLayoutMode('bq');
         if (iframe) iframe.style.display = 'none';
         if (chartView) chartView.style.display = 'block';
         setTableIconVisible(true);
         setMapIconVisible(true);
         updateMapModeLayout();
         setBQSubTab(currentBQSubTab);
+        window.requestAnimationFrame(() => {
+            invalidateMapSizes();
+        });
     }
 
-    function setLoading(isLoading) {
+    function indicatorDisplayName(indicator) {
+        const items = document.querySelectorAll('#horizontal-menu a.submenu-item');
+        for (const item of items) {
+            const match = (item.getAttribute('onclick') || '').match(/cambiarMapa\('([^']+)'\)/);
+            if (match && match[1] === indicator) {
+                return item.textContent.trim();
+            }
+        }
+
+        return indicator || 'Indicador';
+    }
+
+    function setLoading(isLoading, indicator, selectionLabel) {
         const dim = el('bq-screen-dim');
         const loading = el('bq-chart-loading');
+        const chartView = el('bq-chart-view');
+        if (isLoading) {
+            setText('bq-loading-title', indicatorDisplayName(indicator));
+            setText(
+                'bq-loading-region',
+                selectionLabel ? `Selección territorial: ${selectionLabel}` : 'Preparando la selección territorial…'
+            );
+        }
         if (dim) dim.style.display = isLoading ? 'block' : 'none';
         if (loading) loading.style.display = isLoading ? 'flex' : 'none';
+        if (chartView) chartView.setAttribute('aria-busy', isLoading ? 'true' : 'false');
     }
 
     function hideChartView() {
@@ -914,11 +1112,14 @@ window.addEventListener('resize', () => {
         const chartView = el('bq-chart-view');
         const errorBox = el('bq-chart-error');
         setLoading(false);
-        if (iframe) iframe.style.display = 'block';
         if (chartView) chartView.style.display = 'none';
+        setEmbedLayoutMode('looker');
+        if (iframe) iframe.style.display = 'block';
         if (errorBox) errorBox.style.display = 'none';
         setTableIconVisible(false);
         setMapIconVisible(false);
+        activeIndicator = null;
+        activeRequestKey = null;
         mapPayload = null;
         mapPageIndex = 0;
         clearMapPanel('No hay datos para construir mapas departamentales.');
@@ -936,12 +1137,39 @@ window.addEventListener('resize', () => {
         errorBox.style.display = safeMessage ? 'block' : 'none';
     }
 
-    function computeSuggestedMax(values) {
-        const maxValue = Math.max(...values.filter(v => v !== null && v !== undefined), 0);
-        const padded = maxValue * 1.25;
-        const rounded = Math.ceil(padded);
-        const evenMax = rounded % 2 === 0 ? rounded : rounded + 1;
-        return Math.max(6, evenMax);
+    // Devuelve los limites del eje Y. No puede asumir 0-100: hay indicadores en
+    // hectareas (millones) y otros con series enteramente negativas, como el
+    // cambio de bosque y la tasa de deforestacion.
+    function computeYBounds(values) {
+        const limpios = values.filter(v => v !== null && v !== undefined && !Number.isNaN(Number(v))).map(Number);
+        const esPorcentaje = unidadActual === '%';
+        if (!limpios.length) {
+            return { min: 0, max: 6, esPorcentajeChico: esPorcentaje };
+        }
+
+        const maxValue = Math.max(...limpios);
+        const minValue = Math.min(...limpios);
+
+        // Los porcentajes positivos conservan la escala entera y nunca superan
+        // 100 %. El resto de unidades mantiene una escala libre.
+        const esPorcentajeChico = esPorcentaje && minValue >= 0;
+        if (esPorcentajeChico) {
+            const factorMargen = maxValue > 100 ? 1.05 : 1.25;
+            const rounded = Math.ceil(maxValue * factorMargen);
+            const evenMax = rounded % 2 === 0 ? rounded : rounded + 1;
+            // Un estimado municipal puede superar levemente 100 %. Se conserva
+            // tal como llega y se amplia el eje para que el punto no se recorte.
+            const maxPorcentaje = maxValue > 100 ? evenMax : Math.min(100, evenMax);
+            return { min: 0, max: Math.max(6, maxPorcentaje), esPorcentajeChico: true };
+        }
+
+        const span = (maxValue - minValue) || Math.abs(maxValue) || 1;
+        const pad = span * 0.15;
+        return {
+            min: minValue < 0 ? minValue - pad : 0,
+            max: esPorcentaje ? Math.min(100, maxValue + pad) : maxValue + pad,
+            esPorcentajeChico: false
+        };
     }
 
     function renderChart(data) {
@@ -955,43 +1183,83 @@ window.addEventListener('resize', () => {
         const years = data.series.years || [];
         const nacional = data.series.nacional || [];
         const departamental = data.series.departamental || [];
-        const maxY = computeSuggestedMax([...nacional, ...departamental]);
+        const municipal = data.series.municipal || [];
+        const esMunicipal = data.territoryLevel === 'municipio';
+        const limitesY = computeYBounds([...nacional, ...departamental, ...municipal]);
+
+        // Con uno o dos cortes una linea no comunica nada: son uno o dos puntos
+        // sueltos. En ese caso se comparan Nacional y Departamento con barras.
+        const esBarras = years.length <= 2;
+
+        const leyenda = document.querySelector('.bq-custom-legend');
+        if (leyenda) { leyenda.classList.toggle('barras', esBarras); }
+        const leyendaMunicipal = el('bq-legend-municipality');
+        if (leyendaMunicipal) { leyendaMunicipal.style.display = esMunicipal ? '' : 'none'; }
+
+        // Una barra muy corta no tiene sitio para la etiqueta dentro: en ese
+        // caso va encima y en el color de la serie, no en blanco.
+        function barraCorta(ctx) {
+            const v = Math.abs(Number(ctx.dataset.data[ctx.dataIndex]) || 0);
+            const tope = Math.max(Math.abs(limitesY.max), Math.abs(limitesY.min)) || 1;
+            return (v / tope) < 0.14;
+        }
 
         chartInstance = new Chart(canvas, {
-            type: 'line',
+            type: esBarras ? 'bar' : 'line',
             data: {
                 labels: years,
                 datasets: [
-                    {
+                    Object.assign({
                         label: 'Nacional',
                         data: nacional,
                         borderColor: '#e5167a',
-                        backgroundColor: '#e5167a',
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointHoverRadius: 5,
-                        tension: 0
-                    },
-                    {
+                        backgroundColor: '#e5167a'
+                    }, esBarras
+                        ? { borderWidth: 0, maxBarThickness: 90 }
+                        : { borderWidth: 3, pointRadius: 4, pointHoverRadius: 5, tension: 0 }),
+                    Object.assign({
                         label: 'Departamental',
                         data: departamental,
                         borderColor: '#16a6a8',
-                        backgroundColor: '#16a6a8',
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        pointHoverRadius: 5,
-                        tension: 0
-                    }
+                        backgroundColor: '#16a6a8'
+                    }, esBarras
+                        ? { borderWidth: 0, maxBarThickness: 90 }
+                        : { borderWidth: 3, pointRadius: 4, pointHoverRadius: 5, tension: 0 }),
+                    ...(esMunicipal ? [Object.assign({
+                        label: 'Municipal',
+                        data: municipal,
+                        borderColor: '#f08600',
+                        backgroundColor: '#f08600',
+                        // Une cortes municipales no consecutivos para comunicar
+                        // tendencia, pero distingue visualmente la interpolacion.
+                        spanGaps: true,
+                        segment: {
+                            borderDash: function (ctx) {
+                                const salto = Math.abs(ctx.p1DataIndex - ctx.p0DataIndex);
+                                return ctx.p0.skip || ctx.p1.skip || salto > 1 ? [7, 6] : undefined;
+                            }
+                        }
+                    }, esBarras
+                        ? { borderWidth: 0, maxBarThickness: 90 }
+                        : { borderWidth: 3, pointRadius: 4, pointHoverRadius: 5, tension: 0 })] : [])
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                // Al acercarse a cualquiera de las dos series, el tooltip se
+                // resuelve por año y muestra juntos Nacional y Departamental.
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
+                        mode: 'index',
+                        intersect: false,
                         callbacks: {
                             label: function (context) {
                                 return `${context.dataset.label}: ${formatPercent(context.parsed.y)}`;
@@ -999,15 +1267,26 @@ window.addEventListener('resize', () => {
                         }
                     },
                     datalabels: {
+                        // En barras se rotula cada una; en linea solo el nivel
+                        // territorial mas detallado, para no saturar la serie.
                         display: function (ctx) {
-                            return ctx.datasetIndex === 1;
+                            return esBarras ? true : ctx.datasetIndex === (esMunicipal ? 2 : 1);
                         },
-                        align: 'top',
-                        offset: 8,
-                        color: '#16a6a8',
+                        anchor: esBarras ? 'end' : undefined,
+                        align: function (ctx) {
+                            if (esBarras) { return barraCorta(ctx) ? 'end' : 'start'; }
+                            if (ctx.dataIndex === 0) { return 'right'; }
+                            if (ctx.dataIndex === years.length - 1) { return 'left'; }
+                            return 'top';
+                        },
+                        offset: esBarras ? 6 : 8,
+                        color: function (ctx) {
+                            if (!esBarras) { return esMunicipal ? '#f08600' : '#16a6a8'; }
+                            return barraCorta(ctx) ? ctx.dataset.backgroundColor : '#fff';
+                        },
                         font: {
                             weight: '700',
-                            size: 14
+                            size: 12
                         },
                         formatter: function (value) {
                             return formatPercent(value);
@@ -1016,27 +1295,36 @@ window.addEventListener('resize', () => {
                 },
                 scales: {
                     x: {
+                        // Los anios llegan como numeros. Forzar escala de categorias
+                        // evita que Chart.js interprete los indices 0..N como valores
+                        // sobre un eje lineal 2018..2025 y comprima los puntos al inicio.
+                        type: 'category',
                         grid: {
                             display: false
                         },
                         ticks: {
                             color: '#5f5f5f',
                             font: {
-                                size: 18
+                                size: 13
                             }
                         }
                     },
                     y: {
-                        min: 0,
-                        max: maxY,
+                        min: limitesY.min,
+                        max: limitesY.max,
                         ticks: {
-                            stepSize: 1,
+                            // stepSize fijo solo sirve en la escala 0-100; en hectareas
+                            // generaria millones de marcas.
+                            stepSize: limitesY.esPorcentajeChico ? 1 : undefined,
                             color: '#5f5f5f',
                             callback: function (value) {
-                                return value % 2 === 0 ? `${value}%` : '';
+                                if (limitesY.esPorcentajeChico) {
+                                    return value % 2 === 0 ? `${value}${unidadActual}` : '';
+                                }
+                                return `${formatearNumero(value, unidadActual)} ${unidadActual}`;
                             },
                             font: {
-                                size: 18
+                                size: 13
                             }
                         },
                         grid: {
@@ -1044,12 +1332,14 @@ window.addEventListener('resize', () => {
                         },
                         title: {
                             display: true,
-                            text: 'Porcentaje',
+                            // Estaba fijo en 'Porcentaje': mentia en los
+                            // indicadores medidos en hectareas.
+                            text: nombreUnidad(unidadActual),
                             color: '#4d4d4d',
                             font: {
                                 family: 'Poppins, sans-serif',
                                 style: 'italic',
-                                size: 16,
+                                size: 13,
                                 weight: 'normal'
                             }
                         }
@@ -1060,47 +1350,53 @@ window.addEventListener('resize', () => {
         });
     }
 
-    async function renderBQChart(indicator, codigoD, regionLabel) {
+    async function renderBQChart(indicator, territoryContext) {
         if (!isBQIndicator(indicator)) {
             hideChartView();
             return;
         }
 
+        const context = territoryContext || {};
+        const codigoD = context.codigoD || '';
+        const codigoM = MUNICIPAL_INDICATORS.has(indicator) ? (context.codigoM || '') : '';
+        const selectionParts = [context.regionLabel, context.departmentLabel];
+        if (codigoM) selectionParts.push(context.municipalityLabel);
+        const selectionLabel = selectionParts.filter(Boolean).join(' · ') || 'N/D';
+        const requestKey = `${indicator}:${codigoD}:${codigoM}`;
+
         activeIndicator = indicator;
+        activeRequestKey = requestKey;
         showChartView();
-        setLoading(true);
+        setLoading(true, indicator, selectionLabel);
         showError('');
         clearRawTable('Cargando datos crudos...');
         clearMapPanel('Cargando mapas...');
         mapPayload = null;
         mapPageIndex = 0;
-        updateDownloadContext(indicator, codigoD);
-
-        const params = new URLSearchParams({ indicator, codigoD });
+        updateDownloadContext(indicator, codigoD, codigoM);
 
         try {
-            const [response, rawResult, mapResult] = await Promise.all([
-                fetch(`${apiEndpoint}?${params.toString()}`),
-                fetchRawData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err })),
+            const [payload, rawResult, mapResult] = await Promise.all([
+                fetchChartData(indicator, codigoD, codigoM),
+                fetchRawData(indicator, codigoD, codigoM).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err })),
                 fetchMapData(indicator, codigoD).then(data => ({ ok: true, data })).catch(err => ({ ok: false, error: err }))
             ]);
-            const payload = await response.json();
 
-            if (!response.ok || !payload.ok) {
-                throw new Error(payload.error || 'No fue posible cargar la grafica.');
-            }
-
-            if (activeIndicator !== indicator) {
-                setLoading(false);
+            if (activeRequestKey !== requestKey) {
                 return;
             }
 
+            unidadActual = (payload.meta && payload.meta.unidad) || '%';
             setText('bq-chart-title', payload.title || indicator);
-            setText('bq-kpi-national', formatPercent(payload.kpis.nacional_2024));
-            setText('bq-kpi-department', formatPercent(payload.kpis.departamento_2024));
-            setText('bq-kpi-municipality', 'N/D');
+            setText('bq-kpi-national', formatPercent(payload.kpis.nacional));
+            setText('bq-kpi-department', formatPercent(payload.kpis.departamento));
+            setText('bq-kpi-municipality', formatPercent(payload.kpis.municipio));
+            document.querySelectorAll('.bq-kpi-year').forEach(function (node) {
+                node.textContent = payload.kpiYear != null ? payload.kpiYear : '';
+            });
+            ajustarTamanoKPI();
             setText('bq-chart-source', payload.meta.source || '');
-            setText('bq-chart-region', regionLabel || 'N/D');
+            setText('bq-chart-region', selectionLabel);
 
             renderChart(payload);
             if (rawResult.ok) {
@@ -1119,6 +1415,9 @@ window.addEventListener('resize', () => {
             setBQSubTab(currentBQSubTab);
             setLoading(false);
         } catch (error) {
+            if (activeRequestKey !== requestKey) {
+                return;
+            }
             setLoading(false);
             showError(error.message || 'No fue posible cargar la grafica.');
             setText('bq-chart-title', 'Sin datos disponibles');
@@ -1135,12 +1434,17 @@ window.addEventListener('resize', () => {
         }
     }
 
-    const downloadBtn = el('bq-download-csv');
+    const downloadBtn = el('bq-download-excel');
     if (downloadBtn) {
         downloadBtn.addEventListener('click', function () {
             if (!downloadContext) return;
             const params = new URLSearchParams(downloadContext);
-            window.open(`${exportApiEndpoint}?${params.toString()}`, '_blank');
+            const link = document.createElement('a');
+            link.href = `${exportApiEndpoint}?${params.toString()}`;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
         });
     }
 
@@ -1230,6 +1534,8 @@ window.addEventListener('resize', () => {
 
         return false;
     };
+
+    window.addEventListener('resize', ajustarTamanoKPI);
 
     window.isBQIndicator = isBQIndicator;
     window.renderBQChart = renderBQChart;

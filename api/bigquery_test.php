@@ -16,6 +16,8 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 
 if ($config['credentialsPath'] !== '' && !is_file($config['credentialsPath'])) {
@@ -28,18 +30,21 @@ if ($config['credentialsPath'] !== '' && !is_file($config['credentialsPath'])) {
 }
 
 try {
-    $clientConfig = [
-        'projectId' => $config['projectId'],
-    ];
-
-    if ($config['credentialsPath'] !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $config['tableId']);
-    $year = isset($_GET['year']) && ctype_digit((string) $_GET['year']) ? (int) $_GET['year'] : 2024;
+    // Sin ?year=, usar el anio mas reciente de la tabla en vez de un literal
+    // que envejece en silencio.
+    if (isset($_GET['year']) && ctype_digit((string) $_GET['year'])) {
+        $year = (int) $_GET['year'];
+    } else {
+        $year = null;
+        $maxYearSql = "SELECT MAX(CAST(A__o AS INT64)) AS anio FROM {$tableRef}";
+        foreach ($bigQuery->runQuery($bigQuery->query($maxYearSql)) as $maxRow) {
+            $year = isset($maxRow['anio']) ? (int) $maxRow['anio'] : null;
+            break;
+        }
+    }
     $codigoD = isset($_GET['codigoD']) ? strtoupper(trim((string) $_GET['codigoD'])) : 'D44';
 
     if (!preg_match('/^D\d{2}$/', $codigoD)) {

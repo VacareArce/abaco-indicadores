@@ -16,6 +16,8 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+
 $config = require __DIR__ . '/config.php';
 $indicatorConfig = require __DIR__ . '/bq_indicator_map.php';
 $indicatorMap = $indicatorConfig['indicators'];
@@ -51,15 +53,57 @@ if (($config['credentialsPath'] ?? '') !== '' && !is_file($config['credentialsPa
 }
 
 /**
+ * Lleva el valor guardado a su unidad de presentacion.
+ *
+ * La escala se declara por indicador en bq_indicator_map.php: unas tablas
+ * guardan fraccion (0.0231 -> 2.31 %) y otras ya guardan el valor final
+ * (51.74 %, 1496026 ha). 'Tipo_dato' no alcanza para distinguirlas.
+ *
  * @param mixed $value
  */
-function valueToPercent($value): ?float
+function valueToPercent($value, float $escala = 100.0): ?float
 {
     if ($value === null) {
         return null;
     }
 
-    return round(((float) $value) * 100, 2);
+    return round(((float) $value) * $escala, 2);
+}
+
+/**
+ * Cierra la cita de la fuente con el rango de anios realmente presente en el dato,
+ * para que no quede un rango fijo desactualizado cuando entre un anio nuevo.
+ *
+ * @param int[] $years
+ */
+function bqSourceWithRange(?string $source, array $years): string
+{
+    $base = $source !== null && trim($source) !== ''
+        ? rtrim(trim($source), '.')
+        : 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV)';
+
+    if ($years === []) {
+        return $base . '.';
+    }
+
+    $min = min($years);
+    $max = max($years);
+
+    return $base . ', ' . ($min === $max ? (string) $min : $min . ' - ' . $max) . '.';
+}
+
+/**
+ * Anexa las aclaraciones del indicador (anios dobles, area en litigio) despues
+ * de la cita de la fuente. Solo las llevan los indicadores que las declaran en
+ * bq_indicator_map.php.
+ *
+ * @param string[] $notas
+ */
+function bqConNotas(string $fuente, array $notas): string
+{
+    $limpias = array_filter(array_map('trim', $notas));
+
+    return $limpias === [] ? $fuente : $fuente . ' ' . implode(' ', $limpias);
 }
 
 function normalizeDeptCode(string $codigoD): string
@@ -69,89 +113,98 @@ function normalizeDeptCode(string $codigoD): string
 }
 
 try {
-    $clientConfig = ['projectId' => $config['projectId']];
-    if (($config['credentialsPath'] ?? '') !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
+    $escala = (float) ($indicatorMap[$indicator]['escala'] ?? 100);
+    $unidad = (string) ($indicatorMap[$indicator]['unidad'] ?? '%');
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
 
-    $yearsSql = "
-        SELECT DISTINCT CAST(A__o AS INT64) AS anio
-        FROM {$tableRef}
-        WHERE A__o IS NOT NULL
-        ORDER BY anio
-    ";
-    $yearsResults = $bigQuery->runQuery($bigQuery->query($yearsSql));
+    // La clave no lleva codigoD: el payload del mapa no depende del departamento.
+    // Lo unico que varia es meta.selectedCode, que se inyecta despues de leer el
+    // cache. Asi 1 entrada por indicador sirve las ~33 combinaciones.
+    $payload = bqCacheServe(
+        bqCacheDir($config),
+        $indicator,
+        "map:v2:{$indicator}",
+        bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
+        static function () use ($bigQuery, $tableRef, $indicator, $indicatorMap, $escala, $unidad, $minYear): array {
 
-    $years = [];
-    foreach ($yearsResults as $row) {
-        $years[] = (int) $row['anio'];
-    }
+            // Una sola consulta cubre valores, anios y titulo: los anios son las claves
+            // distintas del propio resultado y el titulo es el mismo ANY_VALUE de antes.
+            $minYearFilter = $minYear !== null ? ' AND CAST(A__o AS INT64) >= @minYear' : '';
+            $valuesSql = "
+                SELECT
+                    CAST(A__o AS INT64) AS anio,
+                    CodigoD,
+                    AVG(Dato_Departamento) AS departamental,
+                    ANY_VALUE(Indicador_filtro) AS indicador_filtro
+                FROM {$tableRef}
+                WHERE A__o IS NOT NULL
+                  AND CodigoD IS NOT NULL
+                  {$minYearFilter}
+                GROUP BY anio, CodigoD
+                ORDER BY anio, CodigoD
+            ";
+            $params = $minYear !== null ? ['minYear' => $minYear] : [];
+            $valuesResults = $bigQuery->runQuery($bigQuery->query($valuesSql)->parameters($params));
 
-    $valuesSql = "
-        SELECT
-            CAST(A__o AS INT64) AS anio,
-            CodigoD,
-            AVG(Dato_Departamento) AS departamental
-        FROM {$tableRef}
-        WHERE A__o IS NOT NULL
-          AND CodigoD IS NOT NULL
-        GROUP BY anio, CodigoD
-        ORDER BY anio, CodigoD
-    ";
-    $valuesResults = $bigQuery->runQuery($bigQuery->query($valuesSql));
+            $years = [];
+            $valuesByYear = [];
+            $allValues = [];
+            $titleFromData = null;
 
-    $valuesByYear = [];
-    $allValues = [];
-    foreach ($valuesResults as $row) {
-        $yearKey = (string) ((int) $row['anio']);
-        $depCode = normalizeDeptCode((string) $row['CodigoD']);
-        $value = valueToPercent($row['departamental']);
-        if (!isset($valuesByYear[$yearKey])) {
-            $valuesByYear[$yearKey] = [];
+            foreach ($valuesResults as $row) {
+                $anio = (int) $row['anio'];
+                $yearKey = (string) $anio;
+                $depCode = normalizeDeptCode((string) $row['CodigoD']);
+                $value = valueToPercent($row['departamental'], $escala);
+
+                if (!isset($valuesByYear[$yearKey])) {
+                    $valuesByYear[$yearKey] = [];
+                    $years[] = $anio;
+                }
+
+                $valuesByYear[$yearKey][$depCode] = $value;
+
+                if ($value !== null) {
+                    $allValues[] = $value;
+                }
+
+                if ($titleFromData === null && isset($row['indicador_filtro'])) {
+                    $titleFromData = trim((string) $row['indicador_filtro']);
+                }
+            }
+
+            return [
+                'ok' => true,
+                'indicator' => $indicator,
+                'title' => $indicatorMap[$indicator]['title']
+                    ?? ($titleFromData !== '' && $titleFromData !== null ? $titleFromData : $indicator),
+                'years' => $years,
+                'valuesByYear' => $valuesByYear,
+                'scale' => [
+                    'min' => $allValues !== [] ? min($allValues) : null,
+                    'max' => $allValues !== [] ? max($allValues) : null,
+                ],
+                'meta' => [
+                    'unidad' => $unidad,
+                    'source' => bqConNotas(
+                        bqSourceWithRange($indicatorMap[$indicator]['source'] ?? null, $years),
+                        $indicatorMap[$indicator]['notas'] ?? []
+                    ),
+                ],
+            ];
         }
-        $valuesByYear[$yearKey][$depCode] = $value;
-        if ($value !== null) {
-            $allValues[] = $value;
-        }
-    }
+    );
 
-    $titleSql = "
-        SELECT ANY_VALUE(Indicador_filtro) AS indicador_filtro
-        FROM {$tableRef}
-        WHERE A__o IS NOT NULL
-    ";
-    $titleResults = $bigQuery->runQuery($bigQuery->query($titleSql));
-    $titleFromData = null;
-    foreach ($titleResults as $row) {
-        $titleFromData = isset($row['indicador_filtro']) ? trim((string) $row['indicador_filtro']) : null;
-        break;
-    }
+    $payload['meta'] = ['selectedCode' => $codigoD !== '' ? normalizeDeptCode($codigoD) : null]
+        + $payload['meta'];
 
-    $selectedCode = $codigoD !== '' ? normalizeDeptCode($codigoD) : null;
-
-    echo json_encode([
-        'ok' => true,
-        'indicator' => $indicator,
-        'title' => $titleFromData !== '' && $titleFromData !== null
-            ? $titleFromData
-            : $indicator,
-        'years' => $years,
-        'valuesByYear' => $valuesByYear,
-        'scale' => [
-            'min' => $allValues !== [] ? min($allValues) : null,
-            'max' => $allValues !== [] ? max($allValues) : null,
-        ],
-        'meta' => [
-            'selectedCode' => $selectedCode,
-            'source' => $indicatorMap[$indicator]['source']
-                ?? 'Departamento Administrativo Nacional de Estadistica (DANE). Encuesta Nacional de Calidad de Vida (ECV), 2021 - 2024.',
-        ],
-    ], JSON_UNESCAPED_UNICODE);
+    bqSendJson($payload);
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode([

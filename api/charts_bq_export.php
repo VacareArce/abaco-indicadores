@@ -15,19 +15,16 @@ if (!file_exists($autoloadPath)) {
 
 require_once $autoloadPath;
 
+require_once __DIR__ . '/bq_client.php';
+require_once __DIR__ . '/xlsx_writer.php';
+
 $config = require __DIR__ . '/config.php';
 $indicatorConfig = require __DIR__ . '/bq_indicator_map.php';
 $indicatorMap = $indicatorConfig['indicators'];
 $rawColumns = $indicatorConfig['rawColumns'];
-$exportHeaders = array_map(
-    static function (string $col): string {
-        return $col === 'A__o' ? 'Año' : $col;
-    },
-    $rawColumns
-);
-
 $indicator = isset($_GET['indicator']) ? trim((string) $_GET['indicator']) : '';
 $codigoD = isset($_GET['codigoD']) ? strtoupper(trim((string) $_GET['codigoD'])) : '';
+$codigoM = isset($_GET['codigoM']) ? strtoupper(trim((string) $_GET['codigoM'])) : '';
 $year = isset($_GET['year']) ? trim((string) $_GET['year']) : '';
 
 if (!isset($indicatorMap[$indicator])) {
@@ -46,6 +43,37 @@ if (!preg_match('/^D\d{2}$/', $codigoD)) {
     echo json_encode([
         'ok' => false,
         'error' => 'codigoD invalido. Debe tener formato D##, por ejemplo D44.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+$isMunicipal = (bool) ($indicatorMap[$indicator]['municipal'] ?? false);
+if ($codigoM !== '' && !preg_match('/^M\d{5}$/', $codigoM)) {
+    http_response_code(422);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM invalido. Debe tener formato M#####, por ejemplo M44001.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && $codigoM === '') {
+    http_response_code(422);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM es requerido para este indicador municipal.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($isMunicipal && substr($codigoM, 1, 2) !== substr($codigoD, 1, 2)) {
+    http_response_code(422);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => false,
+        'error' => 'codigoM no pertenece al codigoD seleccionado.'
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -70,84 +98,28 @@ if (($config['credentialsPath'] ?? '') !== '' && !is_file($config['credentialsPa
     exit;
 }
 
-/**
- * @param mixed $value
- */
-function csvSafeCell($value): string
-{
-    if ($value === null) {
-        return '';
-    }
-
-    if (is_int($value)) {
-        $text = (string) $value;
-    } elseif (is_float($value)) {
-        $text = rtrim(rtrim((string) $value, '0'), '.');
-        if ($text === '') {
-            $text = '0';
-        }
-        $text = str_replace('.', ',', $text);
-    } else {
-        $text = (string) $value;
-    }
-
-    if (!is_float($value) && is_numeric($text) && str_contains($text, '.')) {
-        $text = str_replace('.', ',', $text);
-    }
-
-    if ($text !== '' && preg_match('/^[=+\-@]/', $text)) {
-        return "'" . $text;
-    }
-
-    return $text;
-}
-
-function encodeExcelText(string $text): string
-{
-    if (function_exists('mb_convert_encoding')) {
-        return mb_convert_encoding($text, 'UTF-16LE', 'UTF-8');
-    }
-
-    if (function_exists('iconv')) {
-        $converted = iconv('UTF-8', 'UTF-16LE//IGNORE', $text);
-        if ($converted !== false) {
-            return $converted;
-        }
-    }
-
-    return $text;
-}
-
-function writeCsvRowUtf16($output, array $fields, string $delimiter = ';'): void
-{
-    $tmp = fopen('php://temp', 'wb+');
-    if ($tmp === false) {
-        throw new RuntimeException('No fue posible crear buffer temporal para CSV.');
-    }
-
-    fputcsv($tmp, $fields, $delimiter);
-    rewind($tmp);
-    $line = stream_get_contents($tmp);
-    fclose($tmp);
-
-    if ($line === false) {
-        throw new RuntimeException('No fue posible leer fila temporal para CSV.');
-    }
-
-    fwrite($output, encodeExcelText($line));
-}
-
 try {
-    $clientConfig = ['projectId' => $config['projectId']];
-    if (($config['credentialsPath'] ?? '') !== '') {
-        $clientConfig['keyFilePath'] = $config['credentialsPath'];
-    }
-
-    $bigQuery = new Google\Cloud\BigQuery\BigQueryClient($clientConfig);
+    $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
-    $columnSql = implode(', ', $rawColumns);
+    $rawColumnMap = $indicatorMap[$indicator]['rawColumns']
+        ?? array_combine($rawColumns, $rawColumns);
+    $responseColumns = array_keys($rawColumnMap);
+    $exportHeaders = array_map(
+        static fn (string $col): string => $col === 'A__o' ? 'Año' : $col,
+        $responseColumns
+    );
+    $columnSql = implode(', ', array_map(
+        static fn (string $alias, string $expression): string => $expression === $alias
+            ? $expression
+            : "{$expression} AS {$alias}",
+        $responseColumns,
+        array_values($rawColumnMap)
+    ));
 
     $sql = "
         SELECT {$columnSql}
@@ -156,6 +128,14 @@ try {
     ";
 
     $params = ['codigoD' => $codigoD];
+    if ($isMunicipal) {
+        $sql .= ' AND CodigoM = @codigoM';
+        $params['codigoM'] = $codigoM;
+    }
+    if ($minYear !== null) {
+        $sql .= ' AND CAST(A__o AS INT64) >= @minYear';
+        $params['minYear'] = $minYear;
+    }
     if ($year !== '') {
         $sql .= ' AND CAST(A__o AS INT64) = @year';
         $params['year'] = (int) $year;
@@ -168,35 +148,32 @@ try {
 
     $rows = [];
     foreach ($queryResults as $row) {
-        $csvRow = [];
-        foreach ($rawColumns as $col) {
-            $csvRow[] = csvSafeCell($row[$col] ?? null);
+        $excelRow = [];
+        foreach ($responseColumns as $col) {
+            $excelRow[] = $row[$col] ?? null;
         }
-        $rows[] = $csvRow;
+        $rows[] = $excelRow;
     }
 
     $safeIndicator = preg_replace('/[^A-Za-z0-9_\-]/', '_', $indicator) ?: 'indicador';
     $timestamp = gmdate('Ymd_His');
-    $filename = sprintf('raw_%s_%s_%s.csv', $safeIndicator, $codigoD, $timestamp);
+    $territoryCode = $isMunicipal ? $codigoM : $codigoD;
+    $filename = sprintf('datos_%s_%s_%s.xlsx', $safeIndicator, $territoryCode, $timestamp);
+    $numericColumns = [];
+    foreach ($responseColumns as $index => $column) {
+        if (str_starts_with($column, 'Dato_')) {
+            $numericColumns[] = $index;
+        }
+    }
+    $workbook = xlsxWorkbook($exportHeaders, $rows, $numericColumns);
 
-    header('Content-Type: text/csv; charset=UTF-16LE');
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($workbook));
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
 
-    echo "\xFF\xFE";
-    $output = fopen('php://output', 'wb');
-    if ($output === false) {
-        throw new RuntimeException('No fue posible abrir el flujo de salida para CSV.');
-    }
-
-    fwrite($output, encodeExcelText("sep=;\r\n"));
-    writeCsvRowUtf16($output, $exportHeaders, ';');
-    foreach ($rows as $row) {
-        writeCsvRowUtf16($output, $row, ';');
-    }
-
-    fclose($output);
+    echo $workbook;
 } catch (Throwable $e) {
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
