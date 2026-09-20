@@ -123,10 +123,10 @@ function lista_tableros(){
 										"ficha":"https://drive.google.com/file/d/1Xo_Rx9pQTJnatO9eoDvCD55zYVXdg84p/view?usp=drive_link"
 				},
 				"IPUF":					{"tablero":"p_frp0ts7jqd", 
-										"ficha":"https://drive.google.com/file/d/1Lmzpj5Fez-Z7prDCGns2Qigh1ySYxvr0/view?usp=drive_link"
+										"ficha":"https://drive.google.com/file/d/14946Ba3Jw03VzRSgawb7OGl1Lu0R1ny-/view?usp=drive_link"
 				},
 				"IPUF_VOL":					{"tablero":"p_vfn1nub8qd", 
-											  "ficha":"https://drive.google.com/file/d/1Df62ZHteBJX0pS2nSyaEn0_zlqxE6qJX/view?usp=drive_link"
+											  "ficha":"https://drive.google.com/file/d/1RsHQTUduJ3aaEaRGlm1xyLbt1Vf6WXaj/view?usp=drive_link"
 				},
 				"T_Verduras_BQ":			{"tablero":"p_c7z0yosg1d", "ficha":"https://drive.google.com/file/d/1_-eAgXmqjzzr7M6z_xy0Ozz8JjIgR1bO/view?usp=drive_link"},
 				"T_Legumbres_BQ":			{"tablero":"p_83tywwsg1d", "ficha":"https://drive.google.com/file/d/1WjlTFRNeo5BVEn_ZqZm0TIiLMOjJNEiv/view?usp=drive_link"},

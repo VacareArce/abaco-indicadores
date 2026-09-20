@@ -96,6 +96,9 @@ try {
     $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
     $rawColumnMap = $indicatorMap[$indicator]['rawColumns']
         ?? array_combine($rawColumns, $rawColumns);
@@ -108,15 +111,15 @@ try {
         array_values($rawColumnMap)
     ));
     $cacheKey = $isMunicipal
-        ? "raw:v2:{$indicator}:{$codigoD}:{$codigoM}:{$year}"
-        : "raw:v2:{$indicator}:{$codigoD}:{$year}";
+        ? "raw:v3:{$indicator}:{$codigoD}:{$codigoM}:{$year}"
+        : "raw:v3:{$indicator}:{$codigoD}:{$year}";
 
     $payload = bqCacheServe(
         bqCacheDir($config),
         $indicator,
         $cacheKey,
         bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
-        static function () use ($bigQuery, $tableRef, $columnSql, $codigoD, $codigoM, $year, $indicator, $responseColumns, $isMunicipal): array {
+        static function () use ($bigQuery, $tableRef, $columnSql, $codigoD, $codigoM, $year, $indicator, $responseColumns, $isMunicipal, $minYear): array {
 
             $sql = "
                 SELECT {$columnSql}
@@ -128,6 +131,10 @@ try {
             if ($isMunicipal) {
                 $sql .= ' AND CodigoM = @codigoM';
                 $params['codigoM'] = $codigoM;
+            }
+            if ($minYear !== null) {
+                $sql .= ' AND CAST(A__o AS INT64) >= @minYear';
+                $params['minYear'] = $minYear;
             }
             if ($year !== '') {
                 $sql .= ' AND CAST(A__o AS INT64) = @year';

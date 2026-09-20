@@ -102,6 +102,9 @@ try {
     $bigQuery = bqClient($config);
 
     $tableName = $indicatorMap[$indicator]['table'];
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
     $rawColumnMap = $indicatorMap[$indicator]['rawColumns']
         ?? array_combine($rawColumns, $rawColumns);
@@ -128,6 +131,10 @@ try {
     if ($isMunicipal) {
         $sql .= ' AND CodigoM = @codigoM';
         $params['codigoM'] = $codigoM;
+    }
+    if ($minYear !== null) {
+        $sql .= ' AND CAST(A__o AS INT64) >= @minYear';
+        $params['minYear'] = $minYear;
     }
     if ($year !== '') {
         $sql .= ' AND CAST(A__o AS INT64) = @year';

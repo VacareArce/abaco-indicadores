@@ -64,8 +64,8 @@ Por cada indicador migrado, agrega una entrada con:
 
 Cambios aplicados:
 
-- datos: nueva tabla municipal con 15.708 filas, 1.122 municipios y cortes
-  nacionales/departamentales de 2012 a 2025.
+- datos: tabla municipal con 12.342 filas, 1.122 municipios y cortes
+  nacionales/departamentales de 2015 a 2025.
 - menu: el indicador legado abre el tablero nativo y conserva su ficha tecnica.
 - backend: alias para `Tipo_Dato`/`Tipo_de_Medida`, filtro por `codigoM`, serie
   municipal y mapas departamentales.
@@ -76,7 +76,7 @@ QA funcional:
 
 - [x] Carga de grafica y tres series
 - [x] Tabla cruda y Excel filtrados al municipio
-- [x] Mapas departamentales 2012-2025
+- [x] Mapas departamentales 2015-2025
 - [x] KPI municipal N/D en 2025
 - [x] Cambio de departamento y municipio
 - [x] Regresion de indicadores `_BQ`

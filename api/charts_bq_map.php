@@ -118,6 +118,9 @@ try {
     $tableName = $indicatorMap[$indicator]['table'];
     $escala = (float) ($indicatorMap[$indicator]['escala'] ?? 100);
     $unidad = (string) ($indicatorMap[$indicator]['unidad'] ?? '%');
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
 
     // La clave no lleva codigoD: el payload del mapa no depende del departamento.
@@ -126,12 +129,13 @@ try {
     $payload = bqCacheServe(
         bqCacheDir($config),
         $indicator,
-        "map:{$indicator}",
+        "map:v2:{$indicator}",
         bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
-        static function () use ($bigQuery, $tableRef, $indicator, $indicatorMap, $escala, $unidad): array {
+        static function () use ($bigQuery, $tableRef, $indicator, $indicatorMap, $escala, $unidad, $minYear): array {
 
             // Una sola consulta cubre valores, anios y titulo: los anios son las claves
             // distintas del propio resultado y el titulo es el mismo ANY_VALUE de antes.
+            $minYearFilter = $minYear !== null ? ' AND CAST(A__o AS INT64) >= @minYear' : '';
             $valuesSql = "
                 SELECT
                     CAST(A__o AS INT64) AS anio,
@@ -141,10 +145,12 @@ try {
                 FROM {$tableRef}
                 WHERE A__o IS NOT NULL
                   AND CodigoD IS NOT NULL
+                  {$minYearFilter}
                 GROUP BY anio, CodigoD
                 ORDER BY anio, CodigoD
             ";
-            $valuesResults = $bigQuery->runQuery($bigQuery->query($valuesSql));
+            $params = $minYear !== null ? ['minYear' => $minYear] : [];
+            $valuesResults = $bigQuery->runQuery($bigQuery->query($valuesSql)->parameters($params));
 
             $years = [];
             $valuesByYear = [];

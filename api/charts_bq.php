@@ -141,17 +141,20 @@ try {
     $tableName = $indicatorMap[$indicator]['table'];
     $escala = (float) ($indicatorMap[$indicator]['escala'] ?? 100);
     $unidad = (string) ($indicatorMap[$indicator]['unidad'] ?? '%');
+    $minYear = isset($indicatorMap[$indicator]['minYear'])
+        ? (int) $indicatorMap[$indicator]['minYear']
+        : null;
     $tableRef = sprintf('`%s.%s.%s`', $config['projectId'], $config['datasetId'], $tableName);
     $cacheKey = $isMunicipal
-        ? "chart:v2:{$indicator}:{$codigoD}:{$codigoM}"
-        : "chart:v2:{$indicator}:{$codigoD}";
+        ? "chart:v3:{$indicator}:{$codigoD}:{$codigoM}"
+        : "chart:v3:{$indicator}:{$codigoD}";
 
     $payload = bqCacheServe(
         bqCacheDir($config),
         $indicator,
         $cacheKey,
         bqTableModifiedProvider($bigQuery, $config['datasetId'], $tableName),
-        static function () use ($bigQuery, $tableRef, $codigoD, $codigoM, $indicator, $indicatorMap, $escala, $unidad, $isMunicipal): array {
+        static function () use ($bigQuery, $tableRef, $codigoD, $codigoM, $indicator, $indicatorMap, $escala, $unidad, $isMunicipal, $minYear): array {
             // Una sola consulta cubre serie, KPI y titulo. El KPI es la fila del ultimo
             // anio de la serie -- mismo AVG sobre el mismo filtro -- y el titulo es el
             // mismo ANY_VALUE que antes se pedia aparte.
@@ -159,6 +162,7 @@ try {
                 ? ', AVG(Dato_Municipio) AS municipal, ANY_VALUE(Municipio) AS municipio'
                 : '';
             $municipalFilter = $isMunicipal ? ' AND CodigoM = @codigoM' : '';
+            $minYearFilter = $minYear !== null ? ' AND CAST(A__o AS INT64) >= @minYear' : '';
             $seriesSql = "
                 SELECT
                     CAST(A__o AS INT64) AS anio,
@@ -170,6 +174,7 @@ try {
                 WHERE CodigoD = @codigoD
                   AND A__o IS NOT NULL
                   {$municipalFilter}
+                  {$minYearFilter}
                 GROUP BY anio
                 ORDER BY anio
             ";
@@ -177,6 +182,9 @@ try {
             $params = ['codigoD' => $codigoD];
             if ($isMunicipal) {
                 $params['codigoM'] = $codigoM;
+            }
+            if ($minYear !== null) {
+                $params['minYear'] = $minYear;
             }
             $seriesQuery = $bigQuery->query($seriesSql)->parameters($params);
 

@@ -69,6 +69,7 @@ return [
             'table' => 'Pobreza_Monetaria_Mun_BQ',
             'title' => 'Índice de Pobreza Monetaria',
             'source' => $fuentePobrezaMonetaria,
+            'minYear' => 2015,
             'escala' => 100,
             'unidad' => '%',
             'municipal' => true,

@@ -1053,15 +1053,30 @@ window.addEventListener('resize', () => {
         if (codigoM) downloadContext.codigoM = codigoM;
     }
 
+    function setEmbedLayoutMode(mode) {
+        if (mode !== 'looker' && mode !== 'bq') return;
+
+        const container = document.querySelector('.embed-container');
+        if (!container) return;
+
+        container.classList.remove('embed-container--looker', 'embed-container--bq');
+        container.classList.add(`embed-container--${mode}`);
+        container.dataset.embedMode = mode;
+    }
+
     function showChartView() {
         const iframe = el('tablero');
         const chartView = el('bq-chart-view');
+        setEmbedLayoutMode('bq');
         if (iframe) iframe.style.display = 'none';
         if (chartView) chartView.style.display = 'block';
         setTableIconVisible(true);
         setMapIconVisible(true);
         updateMapModeLayout();
         setBQSubTab(currentBQSubTab);
+        window.requestAnimationFrame(() => {
+            invalidateMapSizes();
+        });
     }
 
     function indicatorDisplayName(indicator) {
@@ -1097,8 +1112,9 @@ window.addEventListener('resize', () => {
         const chartView = el('bq-chart-view');
         const errorBox = el('bq-chart-error');
         setLoading(false);
-        if (iframe) iframe.style.display = 'block';
         if (chartView) chartView.style.display = 'none';
+        setEmbedLayoutMode('looker');
+        if (iframe) iframe.style.display = 'block';
         if (errorBox) errorBox.style.display = 'none';
         setTableIconVisible(false);
         setMapIconVisible(false);
