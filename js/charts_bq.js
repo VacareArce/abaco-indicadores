@@ -1,5 +1,7 @@
 (function () {
     let chartInstance = null;
+    let chartLayoutFrame = null;
+    let scrollToLatestYear = false;
     let activeIndicator = null;
     let activeRequestKey = null;
     let currentBQSubTab = 'grafica';
@@ -158,6 +160,7 @@
         mapPanel.style.display = 'none';
         currentBQSubTab = 'grafica';
         setActiveSidebarIcon('grafica');
+        scheduleChartLayout();
     }
 
     function isBQModeActive() {
@@ -1172,6 +1175,84 @@ window.addEventListener('resize', () => {
         };
     }
 
+    // Ventana calendario relativa al dato, nunca al reloj ni al numero de cortes.
+    function selectHistoryWindow(series) {
+        const years = series.years || [];
+        const indices = years.map((year, index) => ({ year: Number(year), index }))
+            .filter(item => (typeof years[item.index] === 'number' || typeof years[item.index] === 'string') &&
+                String(years[item.index]).trim() !== '' && Number.isInteger(item.year));
+        const latest = indices.length ? Math.max(...indices.map(item => item.year)) : null;
+        const selected = indices.filter(item => item.year >= latest - 10)
+            .sort((a, b) => a.year - b.year);
+        const result = { years: selected.map(item => item.year) };
+        ['nacional', 'departamental', 'municipal'].forEach(name => {
+            const values = series[name] || [];
+            result[name] = values.length ? selected.map(item => values[item.index] ?? null) : [];
+        });
+        return result;
+    }
+
+    function scheduleChartLayout() {
+        if (chartLayoutFrame !== null) return;
+        chartLayoutFrame = window.requestAnimationFrame(function () {
+            chartLayoutFrame = null;
+            resizeHistoricalChart();
+        });
+    }
+
+    function resizeHistoricalChart() {
+        const chart = chartInstance;
+        const viewport = el('bq-chart-scroll');
+        const container = el('bq-chart-canvas-container');
+        if (!chart || !viewport || !container || !viewport.getClientRects().length ||
+            viewport.clientWidth === 0 || !isBQModeActive()) return;
+
+        const bars = chart.config.type === 'bar';
+        const datasets = chart.data.datasets;
+        const labelled = bars ? datasets : datasets.slice(-1);
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = `700 12px ${Chart.defaults.font.family}`;
+        const labelWidth = Math.max(0, ...labelled.flatMap(dataset => dataset.data)
+            .filter(value => value !== null && value !== undefined)
+            .map(value => ctx.measureText(formatearNumero(value, unidadActual)).width));
+        ctx.font = `13px ${Chart.defaults.font.family}`;
+        const yearWidth = Math.max(0, ...chart.data.labels.map(year => ctx.measureText(String(year)).width));
+        ctx.restore();
+
+        // El padding del plugin tambien forma parte del ancho de cada rotulo.
+        const spacing = Math.ceil(Math.max(labelWidth + 24, yearWidth + 16));
+        const sidePadding = bars ? 8 : Math.ceil(labelWidth / 2) + 12;
+        const plotWidth = bars
+            ? chart.data.labels.length * datasets.length * spacing / 0.8
+            : Math.max(0, chart.data.labels.length - 1) * spacing;
+        const axisWidth = Math.ceil(chart.scales.y ? chart.scales.y.width : 100);
+        const width = Math.ceil(Math.max(viewport.clientWidth, axisWidth + 2 * sidePadding + plotWidth + 16));
+        const tickLimit = window.matchMedia('(max-width: 768px)').matches ? 6 : 7;
+        const padding = chart.options.layout.padding;
+        const changed = container.style.width !== `${width}px` || padding.left !== sidePadding ||
+            chart.options.scales.y.ticks.maxTicksLimit !== tickLimit;
+
+        if (changed) {
+            // Cancelar la animacion anterior evita mezclar puntos y trazos de
+            // dimensiones distintas durante el cambio de ancho.
+            chart.stop();
+            container.style.width = `${width}px`;
+            padding.left = sidePadding;
+            padding.right = sidePadding;
+            chart.options.scales.y.ticks.maxTicksLimit = tickLimit;
+            chart.resize();
+            chart.update('none');
+        }
+        const overflowing = viewport.scrollWidth > viewport.clientWidth + 1;
+        const hint = el('bq-chart-scroll-hint');
+        if (hint) hint.hidden = !overflowing;
+        if (scrollToLatestYear) {
+            viewport.scrollLeft = viewport.scrollWidth;
+            scrollToLatestYear = false;
+        }
+    }
+
     function renderChart(data) {
         const canvas = el('bq-chart-canvas');
         if (!canvas) return;
@@ -1180,10 +1261,12 @@ window.addEventListener('resize', () => {
             chartInstance.destroy();
         }
 
-        const years = data.series.years || [];
-        const nacional = data.series.nacional || [];
-        const departamental = data.series.departamental || [];
-        const municipal = data.series.municipal || [];
+        const series = selectHistoryWindow(data.series);
+        const { years, nacional, departamental, municipal } = series;
+        setText('bq-chart-unit', `${nombreUnidad(unidadActual)} (${unidadActual})`);
+        setText('bq-chart-period', years.length
+            ? `Periodo mostrado en la gráfica: ${years[0]}–${years[years.length - 1]}`
+            : 'Periodo mostrado en la gráfica: sin datos');
         const esMunicipal = data.territoryLevel === 'municipio';
         const limitesY = computeYBounds([...nacional, ...departamental, ...municipal]);
 
@@ -1196,14 +1279,7 @@ window.addEventListener('resize', () => {
         const leyendaMunicipal = el('bq-legend-municipality');
         if (leyendaMunicipal) { leyendaMunicipal.style.display = esMunicipal ? '' : 'none'; }
 
-        // Una barra muy corta no tiene sitio para la etiqueta dentro: en ese
-        // caso va encima y en el color de la serie, no en blanco.
-        function barraCorta(ctx) {
-            const v = Math.abs(Number(ctx.dataset.data[ctx.dataIndex]) || 0);
-            const tope = Math.max(Math.abs(limitesY.max), Math.abs(limitesY.min)) || 1;
-            return (v / tope) < 0.14;
-        }
-
+        scrollToLatestYear = true;
         chartInstance = new Chart(canvas, {
             type: esBarras ? 'bar' : 'line',
             data: {
@@ -1247,6 +1323,8 @@ window.addEventListener('resize', () => {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { top: 32, bottom: 32, left: 8, right: 8 } },
+                datasets: { bar: { categoryPercentage: 0.8, barPercentage: 0.9 } },
                 // Al acercarse a cualquiera de las dos series, el tooltip se
                 // resuelve por año y muestra juntos Nacional y Departamental.
                 interaction: {
@@ -1270,26 +1348,31 @@ window.addEventListener('resize', () => {
                         // En barras se rotula cada una; en linea solo el nivel
                         // territorial mas detallado, para no saturar la serie.
                         display: function (ctx) {
-                            return esBarras ? true : ctx.datasetIndex === (esMunicipal ? 2 : 1);
+                            const value = ctx.dataset.data[ctx.dataIndex];
+                            return value !== null && value !== undefined &&
+                                (esBarras || ctx.datasetIndex === (esMunicipal ? 2 : 1));
                         },
-                        anchor: esBarras ? 'end' : undefined,
+                        anchor: function (ctx) {
+                            return esBarras ? (ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end') : 'center';
+                        },
                         align: function (ctx) {
-                            if (esBarras) { return barraCorta(ctx) ? 'end' : 'start'; }
-                            if (ctx.dataIndex === 0) { return 'right'; }
-                            if (ctx.dataIndex === years.length - 1) { return 'left'; }
+                            if (esBarras && ctx.dataset.data[ctx.dataIndex] < 0) return 'bottom';
                             return 'top';
                         },
                         offset: esBarras ? 6 : 8,
                         color: function (ctx) {
                             if (!esBarras) { return esMunicipal ? '#f08600' : '#16a6a8'; }
-                            return barraCorta(ctx) ? ctx.dataset.backgroundColor : '#fff';
+                            return ctx.dataset.backgroundColor;
                         },
                         font: {
+                            family: Chart.defaults.font.family,
                             weight: '700',
                             size: 12
                         },
                         formatter: function (value) {
-                            return formatPercent(value);
+                            // La unidad ya aparece en el titulo del eje y el tooltip;
+                            // repetirla en cada punto alarga y amontona rotulos.
+                            return formatearNumero(value, unidadActual);
                         }
                     }
                 },
@@ -1303,6 +1386,9 @@ window.addEventListener('resize', () => {
                             display: false
                         },
                         ticks: {
+                            autoSkip: false,
+                            minRotation: 0,
+                            maxRotation: 0,
                             color: '#5f5f5f',
                             font: {
                                 size: 13
@@ -1313,15 +1399,11 @@ window.addEventListener('resize', () => {
                         min: limitesY.min,
                         max: limitesY.max,
                         ticks: {
-                            // stepSize fijo solo sirve en la escala 0-100; en hectareas
-                            // generaria millones de marcas.
-                            stepSize: limitesY.esPorcentajeChico ? 1 : undefined,
+                            autoSkip: true,
+                            maxTicksLimit: window.matchMedia('(max-width: 768px)').matches ? 6 : 7,
                             color: '#5f5f5f',
                             callback: function (value) {
-                                if (limitesY.esPorcentajeChico) {
-                                    return value % 2 === 0 ? `${value}${unidadActual}` : '';
-                                }
-                                return `${formatearNumero(value, unidadActual)} ${unidadActual}`;
+                                return formatearNumero(value, unidadActual);
                             },
                             font: {
                                 size: 13
@@ -1331,9 +1413,9 @@ window.addEventListener('resize', () => {
                             color: '#c6c6c6'
                         },
                         title: {
-                            display: true,
-                            // Estaba fijo en 'Porcentaje': mentia en los
-                            // indicadores medidos en hectareas.
+                            // El titulo visible esta fuera del canvas: no se
+                            // oculta al desplazarse hacia los anios recientes.
+                            display: false,
                             text: nombreUnidad(unidadActual),
                             color: '#4d4d4d',
                             font: {
@@ -1348,6 +1430,7 @@ window.addEventListener('resize', () => {
             },
             plugins: [ChartDataLabels]
         });
+        scheduleChartLayout();
     }
 
     async function renderBQChart(indicator, territoryContext) {
@@ -1420,6 +1503,8 @@ window.addEventListener('resize', () => {
             }
             setLoading(false);
             showError(error.message || 'No fue posible cargar la grafica.');
+            setText('bq-chart-period', '');
+            setText('bq-chart-unit', '');
             setText('bq-chart-title', 'Sin datos disponibles');
             setText('bq-kpi-national', 'N/D');
             setText('bq-kpi-department', 'N/D');
@@ -1536,6 +1621,13 @@ window.addEventListener('resize', () => {
     };
 
     window.addEventListener('resize', ajustarTamanoKPI);
+    window.addEventListener('resize', scheduleChartLayout);
+    window.addEventListener('orientationchange', scheduleChartLayout);
+    if (typeof ResizeObserver !== 'undefined') {
+        const chartViewport = el('bq-chart-scroll');
+        if (chartViewport) new ResizeObserver(scheduleChartLayout).observe(chartViewport);
+    }
+    if (document.fonts) document.fonts.ready.then(scheduleChartLayout);
 
     window.isBQIndicator = isBQIndicator;
     window.renderBQChart = renderBQChart;

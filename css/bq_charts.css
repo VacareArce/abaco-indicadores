@@ -245,9 +245,52 @@
 .bq-kpi-card.department .bq-kpi-value { color: #16a6a8; }
 .bq-kpi-card.municipality .bq-kpi-value { color: #f08600; }
 
+.bq-chart-frame {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    min-width: 0;
+}
+
+/* El titulo queda fuera del lienzo desplazable para permanecer siempre visible. */
+.bq-chart-unit {
+    color: #4d4d4d;
+    flex: 0 0 24px;
+    font: italic 13px 'Poppins', sans-serif;
+    margin: 0;
+    text-align: center;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    writing-mode: vertical-rl;
+}
+
+.bq-chart-scroll {
+    flex: 1;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.bq-chart-scroll:focus-visible {
+    outline: 2px solid #16a6a8;
+    outline-offset: 2px;
+}
+
 .bq-chart-canvas-wrap {
     height: 420px;
-    margin-top: 6px;
+    position: relative;
+    width: 100%;
+}
+
+.bq-chart-period,
+.bq-chart-scroll-hint {
+    color: #5e5e5e;
+    font-size: 12px;
+    margin: 6px 0;
+}
+
+.bq-chart-scroll-hint {
+    font-style: italic;
 }
 
 .bq-custom-legend {
